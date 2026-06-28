@@ -86,10 +86,17 @@
       let
         pkgs = import igloo { inherit system; };
 
-        # Pure-consumer goFlakeInputs map (bridges dewey). See go/gomod.nix.
-        goFlakeInputs = import ./go/gomod.nix {
-          inherit purse-first system;
+        # gomod.nix is the mixed producer+consumer half of the flake-input-go_mod
+        # protocol: goFlakeInputs (consumer) bridges dewey; goPkgs (producer)
+        # publishes go-pkgs / go-pkgs-test so downstream repos (madder) can bridge
+        # hyphence as a flake input. The producer src is scoped to the go/ subdir,
+        # so downstream bridges with NO subPath.
+        gomod = import ./go/gomod.nix {
+          inherit pkgs purse-first system;
+          src = self + "/go";
         };
+        inherit (gomod) goFlakeInputs;
+        inherit (gomod.goPkgs) go-pkgs go-pkgs-test;
 
         # Pure lane: the eng preset (sandboxed eng-convention linters) + this
         # repo's formatters/excludes. Drives `nix fmt` (build.wrapper), the
@@ -124,6 +131,28 @@
             ;
           version = hyphenceVersion;
           conformistPreCommit = conformistEval.config.build.preCommit;
+          man7Src = ./docs/man.7;
+        };
+
+        # bats-hyphence: the hermetic CLI integration lane (zz-tests_bats/
+        # hyphence.bats drives the built binary via HYPHENCE_BIN). Built as a
+        # package (`nix build .#bats-hyphence`, run by `just test-bats`); success
+        # leaves a stamp at $out, failure aborts with the bats diagnostic.
+        bats-hyphence = bats.lib.${system}.batsLane {
+          base = result.packages.hyphence;
+          batsSrc = ./zz-tests_bats;
+          binaries = {
+            HYPHENCE_BIN = {
+              base = result.packages.hyphence;
+              name = "hyphence";
+            };
+          };
+          batsLibPath = [ bats.packages.${system}.bats-libs.batsLibPath ];
+          # timeout (coreutils) + cmp (diffutils) are used by the idempotency test.
+          nativeBuildInputs = [
+            pkgs.coreutils
+            pkgs.diffutils
+          ];
         };
 
         # checks.rust-test: the hermetic Rust gate. The crate lives at
@@ -178,6 +207,17 @@
           # The raw conformist binary, so `just lint-worktree` can
           # `nix run .#conformist -- check --config-file <impure> --tree-root .`.
           conformist = conformist.packages.${system}.default;
+
+          # The CLI bats lane, built by `just test-bats`.
+          inherit bats-hyphence;
+
+          # go-pkgs / go-pkgs-test: the producer outputs (filtered go/ source
+          # trees) that let downstream repos bridge hyphence's Go module as a
+          # flake input via goFlakeInputs, instead of the organic gomod2nix.toml
+          # hash (flake-input-go_mod, RFC 0001 § Consumer interface). madder
+          # bridges `github.com/amarbel-llc/hyphence/go` = go-pkgs (no subPath,
+          # since the producer src is already scoped to go/).
+          inherit go-pkgs go-pkgs-test;
         };
 
         devShells.default = result.devShells.default;

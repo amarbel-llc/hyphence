@@ -1,9 +1,9 @@
-# Build/check half of hyphence's go/ subtree. hyphence is a LIBRARY (no
-# binaries this phase), so the only build output is `checks.go-test` — a
-# hermetic `go test -tags test ./...` gate — plus the Go devShell. The
-# conformist format/lint lanes are wired in flake.nix (they need
-# conformist.lib + `self`); the derived hooks/binaries are passed in here
-# for the devShell only.
+# Build/check half of hyphence's go/ subtree. Outputs: the `hyphence` CLI
+# binary (cmd/hyphence — the four format-only subcommands validate/meta/body/
+# format over the RFC 0001 envelope), the `checks.go-test` hermetic
+# `go test -tags test ./...` gate, and the Go devShell. The conformist
+# format/lint lanes are wired in flake.nix (they need conformist.lib + `self`);
+# the derived hooks/binaries are passed in here for the devShell only.
 {
   nixpkgs,
   nixpkgs-master,
@@ -23,6 +23,10 @@
   # callers degrade to organic gomod2nix.toml resolution.
   goFlakeInputs ? { },
   version ? "dev",
+  # docs/man.7 source dir (passed from flake.nix). When set, the CLI build
+  # renders each *.md to a roff man page via pandoc in postInstall. Defaulted
+  # null so non-flake callers skip the man-page step.
+  man7Src ? null,
 }:
 let
   # The fork's default.nix shim auto-applies overlays.default (the gomod2nix
@@ -69,9 +73,42 @@ let
       runHook postInstall
     '';
   };
+
+  # The hyphence CLI binary (cmd/hyphence). igloo's buildGoApplication injects
+  # the version arg as `-X main.version`, so `var version` in main.go carries the
+  # version.env HYPHENCE_VERSION at link time. When man7Src is set, postInstall
+  # renders docs/man.7/*.md to roff man pages via pandoc (the man page's YAML
+  # frontmatter supplies the title) so `man hyphence` works after install.
+  hyphence = pkgs.buildGoApplication {
+    pname = "hyphence";
+    inherit version goFlakeInputs;
+    src = ./.;
+    pwd = ./.;
+    modules = ./gomod2nix.toml;
+    subPackages = [ "cmd/hyphence" ];
+    go = pkgs-master.go_1_26;
+    GOTOOLCHAIN = "local";
+
+    nativeBuildInputs = pkgs-master.lib.optionals (man7Src != null) [
+      pkgs-master.pandoc
+    ];
+
+    postInstall = pkgs-master.lib.optionalString (man7Src != null) ''
+      mkdir -p $out/share/man/man7
+      for f in ${man7Src}/*.md; do
+        name="$(basename "$f" .md)"
+        pandoc -s -t man "$f" -o "$out/share/man/man7/$name.7"
+      done
+    '';
+
+    meta.mainProgram = "hyphence";
+  };
 in
 {
-  packages = { };
+  packages = {
+    inherit hyphence;
+    default = hyphence;
+  };
 
   checks = {
     inherit go-test;

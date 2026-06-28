@@ -30,7 +30,7 @@ The repository is polyglot, with one implementation per language under a
 language-named top-level directory:
 
 ```
-go/      Go implementation (module github.com/amarbel-llc/hyphence/go, package hyphence)
+go/      Go implementation: the hyphence library (package hyphence) + the hyphence CLI (cmd/hyphence)
 rust/    Rust implementation (crate hyphence, RFC 0001 envelope; zero deps, edition 2024)
 docs/    RFC 0001 + the man.7 manual
 ```
@@ -46,6 +46,23 @@ does not disturb the `go/` ↔ `rust/` peer layout. Both implementations are
 checked against the same `rfc_vectors.txt` (kept byte-identical by a
 `vectors-equality` flake check).
 
+## CLI
+
+The Go module also ships a `hyphence` command (`cmd/hyphence`) — format-only
+inspection and re-emission of on-disk hyphence documents, reading a file or `-`
+for stdin:
+
+```sh
+hyphence validate FILE   # check a document against RFC 0001 (exit non-zero on error)
+hyphence meta FILE       # print just the metadata section (boundaries stripped)
+hyphence body FILE       # stream just the body bytes
+hyphence format FILE     # re-emit in canonical line order (idempotent)
+```
+
+`nix build` produces it at `result/bin/hyphence`; `nix run .#hyphence -- …` runs
+it directly. The reference manual is [`docs/man.7/hyphence.md`](docs/man.7/hyphence.md)
+(installed as `hyphence(7)`).
+
 ## Build & test
 
 The build is Nix-driven (an igloo-based flake + gomod2nix for Go, a cargo
@@ -55,9 +72,10 @@ pre-merge CI lane.
 ```sh
 just                 # build + test (the pre-merge CI gate)
 just build           # regenerate gomod2nix.toml + run the flake checks
-just test            # go + rust test suites, go vet, and the impure eng lint
+just test            # go + rust + bats suites, go vet, and the impure eng lint
 just test-go         # just the Go test suite (RFC conformance needs -tags test)
 just test-rust       # just the Rust test suite (unit + RFC conformance)
+just test-bats       # just the CLI integration suite (zz-tests_bats)
 just codemod-fmt     # format the tree in place (nix fmt / conformist repair)
 ```
 

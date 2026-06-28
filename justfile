@@ -18,7 +18,7 @@ build-nix-check:
     nix flake check --show-trace
 
 [group('post-build')]
-test: test-go test-rust lint-go lint-worktree
+test: test-go test-rust test-bats lint-go lint-worktree
 
 # Run the Go test suite in the devShell. CROWN JEWEL: the RFC conformance suite
 # (go/hyphence/rfc_conformance_test.go) is behind //go:build test, so -tags test
@@ -33,6 +33,12 @@ test-go:
 [group('post-build')]
 test-rust:
     nix develop --command cargo test
+
+# Run the hermetic CLI bats integration suite (zz-tests_bats/hyphence.bats) as a
+# nix build against the built binary.
+[group('post-build')]
+test-bats:
+    nix build .#bats-hyphence --show-trace
 
 # Vet the Go sources — the cheap static-analysis pass.
 [group('pre-build')]

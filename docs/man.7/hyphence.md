@@ -2,7 +2,7 @@
 author:
 -
 date: April 2026
-title: HYPHENCE(7) Madder \| Miscellaneous
+title: HYPHENCE(7) Hyphence \| Miscellaneous
 ---
 
 # NAME

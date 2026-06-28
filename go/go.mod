@@ -4,6 +4,7 @@ go 1.26
 
 require (
 	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2
+	mvdan.cc/sh/v3 v3.13.1
 )
 
 require (
