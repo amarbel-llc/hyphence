@@ -1,0 +1,22 @@
+# vim: set ft=toml
+
+[hooks]
+# The pre-merge CI gate: spinclass merge-this-session runs `just` (= the
+# default `build test` lane: gomod2nix drift, the hermetic nix flake check
+# [go test -tags test + the conformist format/lint gate], the devShell go
+# test + vet, and the impure git-state lint).
+pre-merge = "just"
+
+# Per-commit repair: format the index-staged content at authoring time so every
+# commit is conformant in history. spinclass installs this as a per-worktree git
+# pre-commit hook at `sc start`/`sc resume`; it is best-effort, non-blocking,
+# and restages formatted blobs in place (lint-staged semantics).
+#
+# `conformist-pre-commit` is the blessed (conformist#47/#51), config-specific,
+# store-pinned hook: this repo's flake exposes it from
+# conformistEval.config.build.preCommit and puts it on the devShell PATH. It
+# wraps `conformist --staged --exit-zero-on-fix` with this repo's generated
+# store config, so the staged repair formats *.go/*.nix/etc. with the SAME
+# pinned toolchain as `nix fmt`. Requires the devShell active (direnv) so the
+# hook is on PATH.
+pre-commit = "conformist-pre-commit"
