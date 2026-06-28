@@ -10,15 +10,15 @@ import (
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ohio"
 )
 
-type CoderToTypedBlob[BLOB any] struct {
+type CoderToTypedBlob[T any, PT typePtr[T], D any, PD digestPtr[D], BLOB any] struct {
 	RequireMetadata bool
 	// TODO replace with a metadata-like object
-	Metadata interfaces.CoderBufferedReadWriter[*TypedBlob[BLOB]]
-	Blob     CoderTypeMapWithoutType[BLOB]
+	Metadata interfaces.CoderBufferedReadWriter[*TypedBlob[T, PT, D, PD, BLOB]]
+	Blob     CoderTypeMapWithoutType[T, PT, D, PD, BLOB]
 }
 
-func (coder CoderToTypedBlob[O]) DecodeFrom(
-	typedBlob *TypedBlob[O],
+func (coder CoderToTypedBlob[T, PT, D, PD, O]) DecodeFrom(
+	typedBlob *TypedBlob[T, PT, D, PD, O],
 	reader io.Reader,
 ) (n int64, err error) {
 	var n1 int64
@@ -34,15 +34,15 @@ func (coder CoderToTypedBlob[O]) DecodeFrom(
 	n += n1
 
 	if err != nil {
-		err = errors.Wrapf(err, "blob read failed for type: %q", typedBlob.Type)
+		err = errors.Wrapf(err, "blob read failed for type: %q", PT(&typedBlob.Type))
 		return n, err
 	}
 
 	return n, err
 }
 
-func (coder CoderToTypedBlob[O]) readMetadataFrom(
-	typedBlob *TypedBlob[O],
+func (coder CoderToTypedBlob[T, PT, D, PD, O]) readMetadataFrom(
+	typedBlob *TypedBlob[T, PT, D, PD, O],
 	reader *io.Reader,
 ) (n int64, err error) {
 	var state readerState
@@ -130,8 +130,8 @@ LINE_READ_LOOP:
 	return n, err
 }
 
-func (coder CoderToTypedBlob[O]) EncodeTo(
-	typedBlob *TypedBlob[O],
+func (coder CoderToTypedBlob[T, PT, D, PD, O]) EncodeTo(
+	typedBlob *TypedBlob[T, PT, D, PD, O],
 	writer io.Writer,
 ) (n int64, err error) {
 	bufferedWriter := bufio.NewWriter(writer)

@@ -17,7 +17,7 @@ func TestTypedMetadataCoderRoundtripWithBlobDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := &TypedBlob[struct{}]{
+	original := &TypedBlobDefault[struct{}]{
 		BlobDigest: blobDigest,
 	}
 	if err := original.Type.Set("inventory_list-v2"); err != nil {
@@ -27,7 +27,7 @@ func TestTypedMetadataCoderRoundtripWithBlobDigest(t *testing.T) {
 	// Encode
 	var buf bytes.Buffer
 	writer := bufio.NewWriter(&buf)
-	coder := TypedMetadataCoder[struct{}]{}
+	coder := TypedMetadataCoderDefault[struct{}]{}
 
 	if _, err := coder.EncodeTo(original, writer); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestTypedMetadataCoderRoundtripWithBlobDigest(t *testing.T) {
 	}
 
 	// Decode
-	decoded := &TypedBlob[struct{}]{}
+	decoded := &TypedBlobDefault[struct{}]{}
 	reader := bufio.NewReader(strings.NewReader(encoded))
 
 	if _, err := coder.DecodeFrom(decoded, reader); err != nil {
@@ -66,14 +66,14 @@ func TestTypedMetadataCoderRoundtripWithBlobDigest(t *testing.T) {
 }
 
 func TestTypedMetadataCoderOmitsNullBlobDigest(t *testing.T) {
-	original := &TypedBlob[struct{}]{}
+	original := &TypedBlobDefault[struct{}]{}
 	if err := original.Type.Set("inventory_list-v2"); err != nil {
 		t.Fatal(err)
 	}
 
 	var buf bytes.Buffer
 	writer := bufio.NewWriter(&buf)
-	coder := TypedMetadataCoder[struct{}]{}
+	coder := TypedMetadataCoderDefault[struct{}]{}
 
 	if _, err := coder.EncodeTo(original, writer); err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestTypedMetadataCoderOmitsNullBlobDigest(t *testing.T) {
 type testBlobDecoder struct{}
 
 func (testBlobDecoder) DecodeFrom(
-	_ *TypedBlob[struct{}],
+	_ *TypedBlobDefault[struct{}],
 	reader *bufio.Reader,
 ) (n int64, err error) {
 	data, err := reader.ReadString(0)
@@ -107,13 +107,13 @@ func TestDecoderBlobTeeWriterCapturesBlobContent(t *testing.T) {
 
 	var blobCapture bytes.Buffer
 
-	decoder := Decoder[*TypedBlob[struct{}]]{
-		Metadata:      TypedMetadataCoder[struct{}]{},
+	decoder := Decoder[*TypedBlobDefault[struct{}]]{
+		Metadata:      TypedMetadataCoderDefault[struct{}]{},
 		Blob:          testBlobDecoder{},
 		BlobTeeWriter: &blobCapture,
 	}
 
-	typedBlob := &TypedBlob[struct{}]{}
+	typedBlob := &TypedBlobDefault[struct{}]{}
 	reader := bufio.NewReader(strings.NewReader(body))
 
 	if _, err := decoder.DecodeFrom(typedBlob, reader); err != nil {
@@ -164,13 +164,13 @@ func TestDecoderMissingNewlineBetweenBoundaryAndBlobShouldFail(t *testing.T) {
 
 	var blobCapture bytes.Buffer
 
-	decoder := Decoder[*TypedBlob[struct{}]]{
-		Metadata:      TypedMetadataCoder[struct{}]{},
+	decoder := Decoder[*TypedBlobDefault[struct{}]]{
+		Metadata:      TypedMetadataCoderDefault[struct{}]{},
 		Blob:          testBlobDecoder{},
 		BlobTeeWriter: &blobCapture,
 	}
 
-	typedBlob := &TypedBlob[struct{}]{}
+	typedBlob := &TypedBlobDefault[struct{}]{}
 	reader := bufio.NewReader(strings.NewReader(body))
 
 	_, err := decoder.DecodeFrom(typedBlob, reader)
@@ -204,14 +204,14 @@ func TestDecoderAllowMissingSeparatorForwardsBlobContent(t *testing.T) {
 
 	var blobCapture bytes.Buffer
 
-	decoder := Decoder[*TypedBlob[struct{}]]{
-		Metadata:              TypedMetadataCoder[struct{}]{},
+	decoder := Decoder[*TypedBlobDefault[struct{}]]{
+		Metadata:              TypedMetadataCoderDefault[struct{}]{},
 		Blob:                  testBlobDecoder{},
 		BlobTeeWriter:         &blobCapture,
 		AllowMissingSeparator: true,
 	}
 
-	typedBlob := &TypedBlob[struct{}]{}
+	typedBlob := &TypedBlobDefault[struct{}]{}
 	reader := bufio.NewReader(strings.NewReader(body))
 
 	if _, err := decoder.DecodeFrom(typedBlob, reader); err != nil {
@@ -261,22 +261,22 @@ func TestWriterOutputParsesWithStrictReader(t *testing.T) {
 type testBlobEncoder struct{}
 
 func (testBlobEncoder) EncodeTo(
-	_ *TypedBlob[struct{}],
+	_ *TypedBlobDefault[struct{}],
 	writer *bufio.Writer,
 ) (n int64, err error) {
 	return 0, nil
 }
 
 func TestEncoderOutputParsesWithStrictDecoder(t *testing.T) {
-	original := &TypedBlob[struct{}]{}
+	original := &TypedBlobDefault[struct{}]{}
 	if err := original.Type.Set("toml-type-v1"); err != nil {
 		t.Fatal(err)
 	}
 
 	// Encode
 	var buf bytes.Buffer
-	encoder := Encoder[*TypedBlob[struct{}]]{
-		Metadata: TypedMetadataCoder[struct{}]{},
+	encoder := Encoder[*TypedBlobDefault[struct{}]]{
+		Metadata: TypedMetadataCoderDefault[struct{}]{},
 		Blob:     testBlobEncoder{},
 	}
 
@@ -287,9 +287,9 @@ func TestEncoderOutputParsesWithStrictDecoder(t *testing.T) {
 	t.Logf("Encoder output: %q", buf.String())
 
 	// Decode with strict Decoder
-	decoded := &TypedBlob[struct{}]{}
-	decoder := Decoder[*TypedBlob[struct{}]]{
-		Metadata: TypedMetadataCoder[struct{}]{},
+	decoded := &TypedBlobDefault[struct{}]{}
+	decoder := Decoder[*TypedBlobDefault[struct{}]]{
+		Metadata: TypedMetadataCoderDefault[struct{}]{},
 		Blob:     testBlobDecoder{},
 	}
 
@@ -304,4 +304,4 @@ func TestEncoderOutputParsesWithStrictDecoder(t *testing.T) {
 }
 
 // Verify that the TypedMetadataCoder implements the expected interface.
-var _ interfaces.CoderBufferedReadWriter[*TypedBlob[struct{}]] = TypedMetadataCoder[struct{}]{}
+var _ interfaces.CoderBufferedReadWriter[*TypedBlobDefault[struct{}]] = TypedMetadataCoderDefault[struct{}]{}

@@ -10,11 +10,15 @@ import (
 )
 
 func DecodeFromFileInto[
+	T any,
+	PT typePtr[T],
+	D any,
+	PD digestPtr[D],
 	BLOB any,
 	BLOB_PTR interfaces.Ptr[BLOB],
 ](
-	typedBlob *TypedBlob[BLOB],
-	coders CoderToTypedBlob[BLOB],
+	typedBlob *TypedBlob[T, PT, D, PD, BLOB],
+	coders CoderToTypedBlob[T, PT, D, PD, BLOB],
 	path string,
 ) (err error) {
 	var file *os.File
@@ -41,12 +45,16 @@ func DecodeFromFileInto[
 }
 
 func DecodeFromFile[
+	T any,
+	PT typePtr[T],
+	D any,
+	PD digestPtr[D],
 	BLOB any,
 	BLOB_PTR interfaces.Ptr[BLOB],
 ](
-	coders CoderToTypedBlob[BLOB],
+	coders CoderToTypedBlob[T, PT, D, PD, BLOB],
 	path string,
-) (typedBlob TypedBlob[BLOB], err error) {
+) (typedBlob TypedBlob[T, PT, D, PD, BLOB], err error) {
 	if err = DecodeFromFileInto(&typedBlob, coders, path); err != nil {
 		err = errors.Wrap(err)
 		return typedBlob, err
@@ -60,11 +68,15 @@ func DecodeFromFile[
 // shortcut. For real paths, files.CreateExclusiveWriteOnly is used so a
 // concurrent writer fails fast rather than producing a torn write.
 func EncodeToFile[
+	T any,
+	PT typePtr[T],
+	D any,
+	PD digestPtr[D],
 	BLOB any,
 	BLOB_PTR interfaces.Ptr[BLOB],
 ](
-	coders CoderToTypedBlob[BLOB],
-	typedBlob *TypedBlob[BLOB],
+	coders CoderToTypedBlob[T, PT, D, PD, BLOB],
+	typedBlob *TypedBlob[T, PT, D, PD, BLOB],
 	path string,
 ) (err error) {
 	var file *os.File
@@ -93,13 +105,17 @@ func EncodeToFile[
 // For decodes where typedBlob.Blob should be populated with an empty struct
 // when the file is missing
 func DecodeFromFileOrEmptyBuffer[
+	T any,
+	PT typePtr[T],
+	D any,
+	PD digestPtr[D],
 	BLOB any,
 	BLOB_PTR interfaces.Ptr[BLOB],
 ](
-	coders CoderToTypedBlob[BLOB],
+	coders CoderToTypedBlob[T, PT, D, PD, BLOB],
 	path string,
 	permitNotExist bool,
-) (typedBlob TypedBlob[BLOB], err error) {
+) (typedBlob TypedBlob[T, PT, D, PD, BLOB], err error) {
 	typedBlob, err = DecodeFromFile(coders, path)
 
 	if err == nil {

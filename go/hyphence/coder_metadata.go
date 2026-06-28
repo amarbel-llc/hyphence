@@ -10,10 +10,10 @@ import (
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ohio"
 )
 
-type TypedMetadataCoder[BLOB any] struct{}
+type TypedMetadataCoder[T any, PT typePtr[T], D any, PD digestPtr[D], BLOB any] struct{}
 
-func (TypedMetadataCoder[BLOB]) DecodeFrom(
-	typedBlob *TypedBlob[BLOB],
+func (TypedMetadataCoder[T, PT, D, PD, BLOB]) DecodeFrom(
+	typedBlob *TypedBlob[T, PT, D, PD, BLOB],
 	bufferedReader *bufio.Reader,
 ) (n int64, err error) {
 	// TODO scan for type directly
@@ -22,8 +22,8 @@ func (TypedMetadataCoder[BLOB]) DecodeFrom(
 		ohio.MakeLineReaderRepeat(
 			ohio.MakeLineReaderKeyValues(
 				map[string]interfaces.FuncSetString{
-					"!": typedBlob.Type.Set,
-					"@": typedBlob.BlobDigest.Set,
+					"!": PT(&typedBlob.Type).Set,
+					"@": PD(&typedBlob.BlobDigest).Set,
 				},
 			),
 		),
@@ -35,8 +35,8 @@ func (TypedMetadataCoder[BLOB]) DecodeFrom(
 	return n, err
 }
 
-func (TypedMetadataCoder[BLOB]) EncodeTo(
-	typedBlob *TypedBlob[BLOB],
+func (TypedMetadataCoder[T, PT, D, PD, BLOB]) EncodeTo(
+	typedBlob *TypedBlob[T, PT, D, PD, BLOB],
 	bufferedWriter *bufio.Writer,
 ) (n int64, err error) {
 	var n1 int
@@ -44,7 +44,7 @@ func (TypedMetadataCoder[BLOB]) EncodeTo(
 	n1, err = fmt.Fprintf(
 		bufferedWriter,
 		"! %s\n",
-		typedBlob.Type.StringSansOp(),
+		PT(&typedBlob.Type).StringSansOp(),
 	)
 	n += int64(n1)
 
@@ -53,11 +53,11 @@ func (TypedMetadataCoder[BLOB]) EncodeTo(
 		return n, err
 	}
 
-	if !typedBlob.BlobDigest.IsNull() {
+	if !PD(&typedBlob.BlobDigest).IsNull() {
 		n1, err = fmt.Fprintf(
 			bufferedWriter,
 			"@ %s\n",
-			&typedBlob.BlobDigest,
+			PD(&typedBlob.BlobDigest),
 		)
 		n += int64(n1)
 

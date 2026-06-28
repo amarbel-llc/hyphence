@@ -54,13 +54,13 @@ func runRFCVector(t *testing.T, input []byte, outcome, expectedB64 string) {
 
 	var blobCapture bytes.Buffer
 
-	decoder := Decoder[*TypedBlob[struct{}]]{
-		Metadata:      TypedMetadataCoder[struct{}]{},
+	decoder := Decoder[*TypedBlobDefault[struct{}]]{
+		Metadata:      TypedMetadataCoderDefault[struct{}]{},
 		Blob:          testBlobDecoder{},
 		BlobTeeWriter: &blobCapture,
 	}
 
-	typedBlob := &TypedBlob[struct{}]{}
+	typedBlob := &TypedBlobDefault[struct{}]{}
 	reader := bufio.NewReader(bytes.NewReader(input))
 
 	_, err := decoder.DecodeFrom(typedBlob, reader)

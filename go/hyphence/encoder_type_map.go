@@ -7,13 +7,13 @@ import (
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
 )
 
-type EncoderTypeMapWithoutType[BLOB any] map[string]interfaces.EncoderToBufferedWriter[BLOB]
+type EncoderTypeMapWithoutType[T any, PT typePtr[T], D any, PD digestPtr[D], BLOB any] map[string]interfaces.EncoderToBufferedWriter[BLOB]
 
-func (coderTypeMap EncoderTypeMapWithoutType[BLOB]) EncodeTo(
-	typedBlob *TypedBlob[BLOB],
+func (coderTypeMap EncoderTypeMapWithoutType[T, PT, D, PD, BLOB]) EncodeTo(
+	typedBlob *TypedBlob[T, PT, D, PD, BLOB],
 	bufferedWriter *bufio.Writer,
 ) (n int64, err error) {
-	tipe := typedBlob.Type
+	tipe := PT(&typedBlob.Type)
 	coder, ok := coderTypeMap[tipe.String()]
 
 	if !ok {
