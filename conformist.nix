@@ -29,6 +29,11 @@
   # with a store-pinned `just`.
   programs.just.enable = true;
 
+  # rustfmt formats the Rust impl (rust/hyphence/). conformist invokes rustfmt
+  # per-file (not `cargo fmt`), so it reads the per-crate rustfmt.toml (which
+  # pins edition = 2024) rather than Cargo.toml.
+  programs.rustfmt.enable = true;
+
   # shellcheck (read-only linter) over the same shell set as shfmt.
   linters.shellcheck.enable = true;
   linters.shellcheck.includes = [

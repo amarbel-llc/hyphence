@@ -31,7 +31,7 @@ language-named top-level directory:
 
 ```
 go/      Go implementation (module github.com/amarbel-llc/hyphence/go, package hyphence)
-rust/    Rust implementation (forthcoming)
+rust/    Rust implementation (crate hyphence, RFC 0001 envelope; zero deps, edition 2024)
 docs/    RFC 0001 + the man.7 manual
 ```
 
@@ -39,22 +39,33 @@ The Go library is dewey-only (no madder-internal imports), so it builds
 standalone. Its `Type` / `Digest` value types are opaque wrappers — they hold
 the `!` tag and `@` digest as plain strings and round-trip them verbatim.
 
+The Rust crate (`rust/hyphence/`) implements the same RFC 0001 envelope
+(`Document::{decode,encode}`) with zero dependencies. A root virtual-workspace
+`Cargo.toml` exists only so the crate resolves as a cargo git dependency; it
+does not disturb the `go/` ↔ `rust/` peer layout. Both implementations are
+checked against the same `rfc_vectors.txt` (kept byte-identical by a
+`vectors-equality` flake check).
+
 ## Build & test
 
-The build is Nix-driven (an igloo-based flake + gomod2nix). The justfile's
-`default` recipe is the full pre-merge CI lane.
+The build is Nix-driven (an igloo-based flake + gomod2nix for Go, a cargo
+virtual workspace for Rust). The justfile's `default` recipe is the full
+pre-merge CI lane.
 
 ```sh
 just                 # build + test (the pre-merge CI gate)
 just build           # regenerate gomod2nix.toml + run the flake checks
-just test            # go test -tags test, go vet, and the impure eng lint
+just test            # go + rust test suites, go vet, and the impure eng lint
 just test-go         # just the Go test suite (RFC conformance needs -tags test)
+just test-rust       # just the Rust test suite (unit + RFC conformance)
 just codemod-fmt     # format the tree in place (nix fmt / conformist repair)
 ```
 
-The hermetic test gate is the `checks.go-test` flake check, which runs
-`go test -tags test ./...` — the `-tags test` flag is mandatory because the RFC
-conformance suite is behind a `//go:build test` constraint.
+The hermetic test gates are flake checks: `checks.go-test` runs
+`go test -tags test ./...` (the `-tags test` flag is mandatory — the Go RFC
+conformance suite is behind a `//go:build test` constraint), `checks.rust-test`
+runs `cargo test`, and `checks.vectors-equality` keeps the two impls' vector
+files identical. `nix flake check` (via `just build`) runs all of them.
 
-A devShell (`nix develop`, or `direnv allow`) provides the Go toolchain,
-`gomod2nix`, and the conformist formatter/linter tools.
+A devShell (`nix develop`, or `direnv allow`) provides the Go and Rust
+toolchains, `gomod2nix`, and the conformist formatter/linter tools.

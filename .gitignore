@@ -1,0 +1,6 @@
+# Rust build artifacts (cargo workspace target lives at the repo root).
+/target
+
+# nix build result symlinks.
+/result
+/result-*

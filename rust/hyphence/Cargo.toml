@@ -1,0 +1,13 @@
+[package]
+name = "hyphence"
+version = "0.1.0"
+edition = "2024"
+description = "Zero-dependency Rust implementation of the hyphence serialization format (RFC 0001)."
+
+[lib]
+name = "hyphence"
+path = "src/lib.rs"
+
+# Zero dependencies on purpose: the crate builds offline with no crates.io fetch.
+# It is the Rust sibling of the Go implementation under go/hyphence/ in this repo;
+# both implement the RFC 0001 envelope against the same conformance vectors.

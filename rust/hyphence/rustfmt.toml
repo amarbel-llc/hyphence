@@ -1,0 +1,5 @@
+# Pin rustfmt to the crate's edition (Cargo.toml). conformist invokes `rustfmt`
+# per-file (not `cargo fmt`), so it does not read Cargo.toml — without this it
+# would parse under its default edition and reject edition-2024 constructs.
+# conformist ships this file into its sandbox.
+edition = "2024"

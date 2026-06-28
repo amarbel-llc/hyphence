@@ -109,6 +109,14 @@ in
       gotools
       just
       shfmt
+    ])
+    # Rust toolchain for the rust/ sibling crate: `just test-rust` (cargo test)
+    # and ad-hoc cargo/rustfmt. Sourced from igloo (pkgs) to match the
+    # rustPlatform that builds checks.rust-test.
+    ++ (with pkgs; [
+      cargo
+      rustc
+      rustfmt
     ]);
 
     GOTOOLCHAIN = "local";

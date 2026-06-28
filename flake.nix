@@ -125,6 +125,43 @@
           version = hyphenceVersion;
           conformistPreCommit = conformistEval.config.build.preCommit;
         };
+
+        # checks.rust-test: the hermetic Rust gate. The crate lives at
+        # rust/hyphence/ but the lockfile is at the virtual-workspace root
+        # (Cargo.toml/Cargo.lock), so the build source is the root manifest +
+        # the rust/ tree (go/ is excluded so a Go-only change doesn't invalidate
+        # the Rust check). doCheck (default) runs `cargo test`, which exercises
+        # the unit tests + the RFC 0001 conformance harness (conformance.rs
+        # include_str!'s rust/hyphence/testdata/rfc_vectors.txt). Zero deps, so
+        # cargoLock.lockFile vendors nothing and the build is fully offline.
+        rust-test = pkgs.rustPlatform.buildRustPackage {
+          pname = "hyphence-rust";
+          version = hyphenceVersion;
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [
+              ./Cargo.toml
+              ./Cargo.lock
+              ./rust
+            ];
+          };
+          cargoLock.lockFile = ./Cargo.lock;
+        };
+
+        # checks.vectors-equality: the Go and Rust impls each carry their own
+        # copy of the normative RFC 0001 vectors (per-crate copies keep each
+        # crate self-contained for a possible crates.io publish). This gate keeps
+        # them byte-identical so both impls are provably tested against the same
+        # vectors.
+        vectors-equality = pkgs.runCommand "hyphence-vectors-equality" { } ''
+          if ! diff -u \
+            ${./go/hyphence/testdata/rfc_vectors.txt} \
+            ${./rust/hyphence/testdata/rfc_vectors.txt}; then
+            echo "rfc_vectors.txt drift between the go/ and rust/ impls — keep them byte-identical" >&2
+            exit 1
+          fi
+          touch "$out"
+        '';
       in
       {
         packages = result.packages // {
@@ -150,6 +187,7 @@
           # reads the generated store config and checks the read-only source tree
           # (`self`), exiting non-zero on drift. `nix flake check` runs it.
           formatting = conformistEval.config.build.check self;
+          inherit rust-test vectors-equality;
         };
 
         # `nix fmt` runs conformist in repair mode.

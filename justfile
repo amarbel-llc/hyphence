@@ -18,7 +18,7 @@ build-nix-check:
     nix flake check --show-trace
 
 [group('post-build')]
-test: test-go lint-go lint-worktree
+test: test-go test-rust lint-go lint-worktree
 
 # Run the Go test suite in the devShell. CROWN JEWEL: the RFC conformance suite
 # (go/hyphence/rfc_conformance_test.go) is behind //go:build test, so -tags test
@@ -26,6 +26,13 @@ test: test-go lint-go lint-worktree
 [group('post-build')]
 test-go:
     nix develop --command go -C go test -tags test ./...
+
+# Run the Rust test suite (unit tests + the RFC 0001 conformance harness) in the
+# devShell. The crate is a member of the repo-root virtual workspace, so cargo
+# runs from the repo root.
+[group('post-build')]
+test-rust:
+    nix develop --command cargo test
 
 # Vet the Go sources — the cheap static-analysis pass.
 [group('pre-build')]

@@ -1,0 +1,13 @@
+# Virtual workspace root. The Go and Rust implementations are peers under go/ and
+# rust/; this manifest exists ONLY so the Rust crate resolves as a cargo *git*
+# dependency — cargo resolves a git dep's package from the repo-root manifest and
+# has no stable subdir option, so a consumer's `hyphence = { git = "…hyphence" }`
+# needs a root manifest to find rust/hyphence. It is a Rust-only artifact: the Go
+# implementation and the go/-scoped flake never read it, so the polyglot peer
+# layout is preserved.
+[workspace]
+members = ["rust/hyphence"]
+resolver = "3"
+
+[profile.release]
+opt-level = 3
