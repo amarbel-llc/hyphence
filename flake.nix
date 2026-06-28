@@ -115,7 +115,18 @@
         # .git / host tools, so they run against the working tree via `just
         # lint-worktree`, exposed below as packages.conformist-impure-config.
         conformistImpureEval = conformist.lib.evalModule pkgs {
-          imports = [ conformist.lib.presets.eng-impure ];
+          imports = [
+            conformist.lib.presets.eng-impure
+            # clippy (conformist#69) is opt-in (not in the eng-impure roster).
+            # Enable it for the rust/ crate. workspace = true because the repo
+            # root is a VIRTUAL workspace (no root [package]); the default
+            # toolchain (igloo's cargo/clippy/rustc) builds edition 2024, matching
+            # the rustPlatform that builds checks.rust-test.
+            {
+              linters.clippy.enable = true;
+              linters.clippy.workspace = true;
+            }
+          ];
           package = conformist.packages.${system}.default;
           projectRootFile = "flake.nix";
         };
