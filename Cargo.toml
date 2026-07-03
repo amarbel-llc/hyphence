@@ -5,6 +5,7 @@
 # needs a root manifest to find rust/hyphence. It is a Rust-only artifact: the Go
 # implementation and the go/-scoped flake never read it, so the polyglot peer
 # layout is preserved.
+
 [workspace]
 members = ["rust/hyphence"]
 resolver = "3"
