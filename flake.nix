@@ -142,6 +142,10 @@
             ;
           version = hyphenceVersion;
           conformistPreCommit = conformistEval.config.build.preCommit;
+          # The merge-repair sibling, on the devShell PATH as
+          # `conformist-repair` so spinclass's repair phase self-heals bump
+          # commits with this repo's own config (eng tier-B convergence).
+          conformistRepair = conformistEval.config.build.repair;
           man7Src = ./docs/man.7;
         };
 
@@ -209,6 +213,9 @@
           # this repo's pure-lane config; the sweatfile names it as the per-commit
           # hook. `nix build .#conformist-pre-commit` forces it.
           conformist-pre-commit = conformistEval.config.build.preCommit;
+
+          # Likewise the merge-repair sibling: `nix build .#conformist-repair`.
+          conformist-repair = conformistEval.config.build.repair;
 
           # The generated impure-lane config (git-state checks), consumed by
           # `just lint-worktree` to run `conformist check` against the working

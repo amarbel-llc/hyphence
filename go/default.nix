@@ -18,6 +18,13 @@
   # the devShell PATH as `conformist-pre-commit` (the sweatfile
   # [hooks].pre-commit command). Defaulted null for non-flake callers.
   conformistPreCommit ? null,
+  # Its merge-repair sibling (build.repair), on the devShell PATH as
+  # `conformist-repair` — spinclass's merge-repair phase resolves it there,
+  # so a cascade bump commit self-heals at merge time against the rebuilt
+  # post-bump devshell (eng tier-B convergence; eng's fallback wrapper is
+  # severed from child repos and would otherwise skip). Defaulted null for
+  # non-flake callers.
+  conformistRepair ? null,
   system,
   # Flake-input bridge table (see ./gomod.nix). Defaulted {} so non-flake
   # callers degrade to organic gomod2nix.toml resolution.
@@ -139,6 +146,11 @@ in
     # sweatfile [hooks].pre-commit command.
     ++ pkgs-master.lib.optionals (conformistPreCommit != null) [
       conformistPreCommit
+    ]
+    # Its merge-repair sibling, on PATH as `conformist-repair` for the
+    # sweatfile [hooks].repair command (see the conformistRepair param doc).
+    ++ pkgs-master.lib.optionals (conformistRepair != null) [
+      conformistRepair
     ]
     ++ (with pkgs-master; [
       gofumpt
