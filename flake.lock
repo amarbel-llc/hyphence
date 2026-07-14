@@ -14,11 +14,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783950360,
-        "narHash": "sha256-hy3/twnNG7CcNH8+0cV4GVwwGkytIAVbG9XDKEFdr40=",
+        "lastModified": 1783992495,
+        "narHash": "sha256-Ur6JvfN6m3GBFpZ7QXuN0tClhij8pi0xvD9iwDzyg+w=",
         "owner": "amarbel-llc",
         "repo": "bats",
-        "rev": "99b2c2b95e11b5e04a193ef0e54d759706851efb",
+        "rev": "cd0e74302b4535fccf3be6c3a37493d487d4e1da",
         "type": "github"
       },
       "original": {
@@ -86,38 +86,11 @@
         "type": "github"
       }
     },
-    "conformist_2": {
-      "inputs": {
-        "igloo": [
-          "doppelgang",
-          "igloo"
-        ],
-        "nixpkgs-master": [
-          "doppelgang",
-          "nixpkgs-master"
-        ],
-        "utils": [
-          "doppelgang",
-          "utils"
-        ]
-      },
-      "locked": {
-        "lastModified": 1783949730,
-        "narHash": "sha256-ilEJ9Wp+yrc1/3CK7NRQDdmJ0PTB+xJoS8Grslo7itg=",
-        "ref": "refs/heads/master",
-        "rev": "1985c0c5fd4197ae944526ea9700caed259e1fe8",
-        "revCount": 153,
-        "type": "git",
-        "url": "https://code.linenisgreat.com/conformist.git"
-      },
-      "original": {
-        "type": "git",
-        "url": "https://code.linenisgreat.com/conformist.git"
-      }
-    },
     "doppelgang": {
       "inputs": {
-        "conformist": "conformist_2",
+        "conformist": [
+          "conformist"
+        ],
         "igloo": [
           "igloo"
         ],
@@ -248,11 +221,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783950417,
-        "narHash": "sha256-LMFeTQLj5CPrlWQE/++WycO8Vq4iYKzWna5wSD+Lf4w=",
+        "lastModified": 1783992553,
+        "narHash": "sha256-nugXy3GOx6SVDokiQFimxeoTXZ+wbYz54Twzi4Pmmkk=",
         "owner": "amarbel-llc",
         "repo": "purse-first",
-        "rev": "6c645d3c2104e488f06cebc6ebcd635102090368",
+        "rev": "f3ad3d58f15005c5caf0e32e85a1d48655ed25d6",
         "type": "github"
       },
       "original": {
