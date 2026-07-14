@@ -34,7 +34,7 @@
     # bridge github.com/amarbel-llc/purse-first/libs/dewey, so a dewey bump is
     # a flake.lock-only edit (RFC 0001 § Consumer interface).
     purse-first = {
-      url = "git+https://code.linenisgreat.com/purse-first.git";
+      url = "git+https://github.com/amarbel-llc/purse-first.git";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.igloo.follows = "igloo";
       inputs.utils.follows = "utils";
@@ -53,7 +53,7 @@
     # doppelgang provides `lint`, the flake.lock dedup gate. On the devShell
     # PATH; the follows wiring above keeps one node per shared input.
     doppelgang = {
-      url = "git+https://code.linenisgreat.com/doppelgang.git";
+      url = "git+https://github.com/amarbel-llc/doppelgang.git";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
