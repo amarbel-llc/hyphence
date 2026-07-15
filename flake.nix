@@ -6,7 +6,7 @@
     # gomod2nix overlay, with goFlakeInputs support per nixpkgs RFC 0001) into
     # the base pkgs set, so this flake's build closure matches madder's.
     igloo = {
-      url = "git+https://code.linenisgreat.com/igloo.git";
+      url = "git+https://github.com/amarbel-llc/igloo.git";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "bats/treefmt-nix";
     };
@@ -44,7 +44,7 @@
     # conformist: the linter/formatter multiplexer (treefmt successor). Config
     # is Nix-generated from ./conformist.nix + presets.eng via evalModule.
     conformist = {
-      url = "git+https://code.linenisgreat.com/conformist.git";
+      url = "git+https://github.com/amarbel-llc/conformist.git";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
