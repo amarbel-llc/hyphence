@@ -14,11 +14,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784112118,
-        "narHash": "sha256-dOT85Uw1WGoZRMs+SrmbVHJAuO4tUobhgxXTc/aHbhM=",
+        "lastModified": 1784201818,
+        "narHash": "sha256-tXWylXtCnosOyuwFvRKlDOUql9GBX6CkD056B2lGc64=",
         "ref": "refs/heads/master",
-        "rev": "cdaa14ca559917f61566f3f0eb8f3dd7ddb477c9",
-        "revCount": 2073,
+        "rev": "cc408607caef418a09c20543d9fff1af780a5776",
+        "revCount": 2074,
         "type": "git",
         "url": "https://code.linenisgreat.com/bats.git"
       },
@@ -79,11 +79,11 @@
         "rev": "2099b7b546aa25709146736d2adaac4f374fb711",
         "revCount": 155,
         "type": "git",
-        "url": "https://github.com/amarbel-llc/conformist.git"
+        "url": "https://code.linenisgreat.com/conformist.git"
       },
       "original": {
         "type": "git",
-        "url": "https://github.com/amarbel-llc/conformist.git"
+        "url": "https://code.linenisgreat.com/conformist.git"
       }
     },
     "doppelgang": {
@@ -102,17 +102,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1784112671,
-        "narHash": "sha256-Ad6I9PcVq181zP8J3iz3B3n8fISHZ5eVNXED8T+Wtic=",
+        "lastModified": 1784202647,
+        "narHash": "sha256-U92jzVnNUKfKYof4AzemsFtuholDaq7JSgZdjIoJfiA=",
         "ref": "refs/heads/master",
-        "rev": "0668f76785e4e586021ffd466042bc834c0e87b4",
-        "revCount": 70,
+        "rev": "9ea116b07e8ecf8c50e4103ccc13b2000839cae1",
+        "revCount": 71,
         "type": "git",
-        "url": "https://github.com/amarbel-llc/doppelgang.git"
+        "url": "https://code.linenisgreat.com/doppelgang.git"
       },
       "original": {
         "type": "git",
-        "url": "https://github.com/amarbel-llc/doppelgang.git"
+        "url": "https://code.linenisgreat.com/doppelgang.git"
       }
     },
     "flake-parts": {
@@ -181,11 +181,11 @@
         "rev": "e04bba9f87552e4161ebec00c528361316d36d3c",
         "revCount": 73,
         "type": "git",
-        "url": "https://github.com/amarbel-llc/igloo.git"
+        "url": "https://code.linenisgreat.com/igloo.git"
       },
       "original": {
         "type": "git",
-        "url": "https://github.com/amarbel-llc/igloo.git"
+        "url": "https://code.linenisgreat.com/igloo.git"
       }
     },
     "nixpkgs-master": {
@@ -221,17 +221,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1784112175,
-        "narHash": "sha256-BRgNv1GBjG5eEYms97T5wtmdoGQEImEDFoEqPq3Xp4g=",
+        "lastModified": 1784201878,
+        "narHash": "sha256-m6+98W2inaVJ4uRoRjBeIOyJ3uL1uS5OJhiU8W6Kmmw=",
         "ref": "refs/heads/master",
-        "rev": "4d3361cbfd0828b34b77d5eea622b0a721b3fdfb",
-        "revCount": 1003,
+        "rev": "2c7eac281a28cc52303f920839dc8862b820b5c6",
+        "revCount": 1004,
         "type": "git",
-        "url": "https://github.com/amarbel-llc/purse-first.git"
+        "url": "https://code.linenisgreat.com/purse-first.git"
       },
       "original": {
         "type": "git",
-        "url": "https://github.com/amarbel-llc/purse-first.git"
+        "url": "https://code.linenisgreat.com/purse-first.git"
       }
     },
     "root": {
