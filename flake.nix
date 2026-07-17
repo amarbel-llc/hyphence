@@ -6,7 +6,7 @@
     # gomod2nix overlay, with goFlakeInputs support per nixpkgs RFC 0001) into
     # the base pkgs set, so this flake's build closure matches madder's.
     igloo = {
-      url = "git+https://code.linenisgreat.com/igloo.git";
+      url = "https://code.linenisgreat.com/igloo/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "bats/treefmt-nix";
     };
@@ -24,7 +24,7 @@
     # lanes. No bats suite yet (library-only), so it's an input + follows anchor
     # for the shared treefmt-nix node; not consumed in an output yet.
     bats = {
-      url = "git+https://code.linenisgreat.com/bats.git";
+      url = "https://code.linenisgreat.com/bats/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.igloo.follows = "igloo";
       inputs.utils.follows = "utils";
@@ -34,7 +34,7 @@
     # bridge github.com/amarbel-llc/purse-first/libs/dewey, so a dewey bump is
     # a flake.lock-only edit (RFC 0001 § Consumer interface).
     purse-first = {
-      url = "git+https://code.linenisgreat.com/purse-first.git";
+      url = "https://code.linenisgreat.com/purse-first/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.igloo.follows = "igloo";
       inputs.utils.follows = "utils";
@@ -44,7 +44,7 @@
     # conformist: the linter/formatter multiplexer (treefmt successor). Config
     # is Nix-generated from ./conformist.nix + presets.eng via evalModule.
     conformist = {
-      url = "git+https://code.linenisgreat.com/conformist.git";
+      url = "https://code.linenisgreat.com/conformist/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -53,7 +53,7 @@
     # doppelgang provides `lint`, the flake.lock dedup gate. On the devShell
     # PATH; the follows wiring above keeps one node per shared input.
     doppelgang = {
-      url = "git+https://code.linenisgreat.com/doppelgang.git";
+      url = "https://code.linenisgreat.com/doppelgang/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
