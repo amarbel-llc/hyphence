@@ -57,6 +57,7 @@
       inputs.utils.follows = "utils";
     };
     doppelgang.inputs.conformist.follows = "conformist";
+    bats.inputs.conformist.follows = "conformist";
   };
 
   outputs =
