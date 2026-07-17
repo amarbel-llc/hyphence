@@ -8,7 +8,6 @@
     igloo = {
       url = "https://code.linenisgreat.com/igloo/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
-      inputs.treefmt-nix.follows = "bats/treefmt-nix";
     };
 
     # SHA-pinned upstream anchor (Hydra-blessed, cache.nixos.org-served).
@@ -21,8 +20,7 @@
     };
 
     # bats: amarbel-llc/bats provides lib.batsLane for future CLI/integration
-    # lanes. No bats suite yet (library-only), so it's an input + follows anchor
-    # for the shared treefmt-nix node; not consumed in an output yet.
+    # lanes. No bats suite yet (library-only); not consumed in an output yet.
     bats = {
       url = "https://code.linenisgreat.com/bats/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
