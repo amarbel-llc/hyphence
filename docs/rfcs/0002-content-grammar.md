@@ -5,6 +5,11 @@ authors: Sasha F (with Clown)
 revised: 2026-07-18 (add trailing line comments on structured metadata
   lines — `!`/`@`/`-`/`<` only, never `#` free text; motivated by inline
   annotation of dodder repo/workspace/type configs)
+superseded-in-part: 2026-07-18, §Lock grammar only, by RFC 0003
+  (docs/rfcs/0003-markl-atomic-locks.md) — the `Lock = SP DigestTerm`
+  production and every place it is used are replaced by atomic
+  purpose-full markl ids; every other section of this RFC is
+  unaffected and remains authoritative
 ---
 
 # RFC 0002 — Content Grammar
@@ -82,11 +87,15 @@ Lock            = SP DigestTerm
 TrailingComment = SP "%" (!LF .)*
 ```
 
+> **Superseded 2026-07-18.** `Lock` and every `Lock?` suffix above (`TypeContent`, `RefContent`, `FieldRHS`'s second alternative) are replaced by RFC 0003 (`docs/rfcs/0003-markl-atomic-locks.md`): `TypeContent = Ident`, `RefContent = GroundTerm`, `FieldRHS = DigestTerm / FieldValue` — a locked value is an ordinary `Ident`/`FieldValue` containing a purpose-full markl id, not a distinct suffixed shape. See RFC 0003 for the current productions; kept here verbatim for history.
+
 `DashContent` is ordered `FieldContent / RefContent`: a line whose content contains an unescaped `=` between a `FieldName` and a value is a field line; otherwise it is a reference/tag line. This is the same "syntactically distinct... under the trellis grammar" test point 4 of the originating issue describes — `FieldPred` is tried before the bare-identifier alternatives in trellis's own `BasicTerm`, and hyphence inherits that ordering.
 
 `FieldRHS`'s `DigestTerm` alternative (the id-less form, e.g. `_base=@blake2b256-…`) depends on a trellis-side grammar change that has not landed as of this writing: `0014-trellis.peg`'s `Value <- String / Bareword` does not admit `DigestTerm` today. Confirmed 2026-07-18: trellis's `Value` production will be extended upstream (RFC 0014) to add a `DigestTerm` alternative, rather than hyphence defining a local, trellis-incompatible extension — see **Open Questions** for how this was surfaced and resolved. Until that upstream change lands, `FieldRHS = DigestTerm` here is forward-declared against it.
 
 ### Lock grammar
+
+> **This entire section is superseded by RFC 0003** (`docs/rfcs/0003-markl-atomic-locks.md`), 2026-07-18: the `SP DigestTerm` spelling below is retired in favor of an unspaced, atomic purpose-full markl id. Kept verbatim for history; do not implement against this section.
 
 RFC 0001 had two inconsistent, informally-specified lock spellings:
 
@@ -115,6 +124,8 @@ A **reference-valued field with a lock** is a typed edge:
 ```
 - blocks=task/other @blake2b256-…
 ```
+
+*(Superseded 2026-07-18 by RFC 0003: the current spelling is the unspaced `- blocks=task/other@blake2b256-…` — one atomic markl id as the field value, not a locked `FieldValue`.)*
 
 `blocks` is the edge label (the field name), `task/other` is the target identifier, and `@blake2b256-…` pins the edge to a specific content digest of the target at write time. See "Semantic Translation" below for dodder resolution-time meaning.
 
@@ -189,6 +200,8 @@ This is not a discrepancy to reconcile. Hyphence is a document-shaped serializat
 
 What each line kind means at dodder type/object/blob resolution time. This section is descriptive (dodder resolution behavior), not itself part of the wire grammar above.
 
+*(The `Lock` spelling referenced by the rows below is superseded by RFC 0003, 2026-07-18 — resolution-time meaning is unchanged, only the wire spelling of "locked" differs; read `Lock` here as "the current lock spelling, whichever RFC governs it.")*
+
 | Line content shape | Resolution-time meaning |
 |---|---|
 | `! Ident` | object type identifier; resolves to a type definition object |
@@ -220,14 +233,14 @@ A decoder that additionally validates content grammar per this RFC:
 
 A conforming encoder:
 
-- **MUST NOT** emit the legacy at-join type lock (`! type@markl-id`) or the legacy angle-join reference lock (`- value < markl-id`); **MUST** emit only the unified `Lock = SP DigestTerm` spelling.
+- ~~**MUST NOT** emit the legacy at-join type lock (`! type@markl-id`) or the legacy angle-join reference lock (`- value < markl-id`); **MUST** emit only the unified `Lock = SP DigestTerm` spelling.~~ **Superseded by RFC 0003, 2026-07-18**: the at-join spelling this bullet forbade is the spelling RFC 0003 now requires; the `SP DigestTerm` spelling this bullet required is the one RFC 0003 now forbids. See RFC 0003 §Lock Grammar for current requirements.
 - **MUST NOT** emit `<` for any line kind; **MUST** emit `-` for all reference, tag, and field lines.
 - **MUST** follow the collapsed canonical order in "`<` Deprecation" above, superseding RFC 0001 §Encoder Behavior's six-bucket list for the buckets it renumbers.
 
 ## Compatibility
 
 - Documents written under RFC 0001 alone (opaque content, either legacy lock spelling, `<` lines) remain RFC 0001-envelope-conforming indefinitely — RFC 0001 §Versioning's "decoders MUST retain support for older type strings indefinitely" principle extends here to older content spellings at the envelope layer.
-- Documents are **not** guaranteed content-grammar-conforming under this RFC unless they use the unified lock spelling and (if applicable) `-` in place of `<`.
+- Documents are **not** guaranteed content-grammar-conforming under this RFC unless they use the unified lock spelling and (if applicable) `-` in place of `<`. **Superseded 2026-07-18**: "the unified lock spelling" here means this RFC's `SP DigestTerm` form specifically, which RFC 0003 retires — see RFC 0003 §Compatibility note for the current content-grammar-conforming lock spelling (the atomic, pre-RFC-0002 at-join form).
 - No migration deadline is set by this RFC; encoders adopt the new spelling at their own pace, same as RFC 0001's type-string evolution model.
 
 ## Open Questions
@@ -247,10 +260,10 @@ Six vectors are appended, exercising the two envelope-level outcomes capable of 
 
 | Name | Outcome | Demonstrates |
 |---|---|---|
-| `unified-lock-type` | `legacy/parse-ok` | `! md @blake2b256-abc` — new type-lock spelling (space-separated, `@`-joined) |
-| `unified-lock-reference` | `document/parse-ok` | `- one/uno @blake2b256-def` — new reference-lock spelling |
-| `field-predicate-line` | `document/parse-ok` | `- due="2026-08-01"` — a field line, quoted value, no lock |
-| `deprecated-angle-still-accepted` | `document/parse-ok` | `< blocks=other/task @blake2b256-ghi` — deprecated `<` PREFIX still envelope-decodes, carrying a locked field/typed-edge line |
+| `unified-lock-type` | `legacy/parse-ok` | `! md @blake2b256-abc` — RFC 0002's type-lock spelling (space-separated, `@`-joined). **Superseded 2026-07-18 by RFC 0003**: still envelope-valid, no longer the canonical content-grammar spelling — see RFC 0003's `atomic-lock-type` for the current form. |
+| `unified-lock-reference` | `document/parse-ok` | `- one/uno @blake2b256-def` — RFC 0002's reference-lock spelling. **Superseded**, same as above — see RFC 0003's `atomic-lock-reference`. |
+| `field-predicate-line` | `document/parse-ok` | `- due="2026-08-01"` — a field line, quoted value, no lock. Unaffected by RFC 0003. |
+| `deprecated-angle-still-accepted` | `document/parse-ok` | `< blocks=other/task @blake2b256-ghi` — deprecated `<` PREFIX still envelope-decodes, carrying a **RFC-0002-spelled** locked field/typed-edge line. **Superseded**, same as above — see RFC 0003's `atomic-lock-typed-edge`. The `<` PREFIX deprecation itself is unaffected. |
 | `id-less-field-lock` | `document/parse-ok` | `- _base=@blake2b256-jkl` — the id-less typed-edge form |
 | `trailing-comment-quoting-composes` | `document/parse-ok` | `- note="50% done" % real comment` — a trailing comment coexisting with a `%` inside a quoted field value, the case "Trailing comments" calls out explicitly |
 
@@ -260,6 +273,7 @@ On the Rust side, `rust/hyphence/src/conformance.rs`'s single `rfc_test_vectors`
 
 ## See Also
 
+- `docs/rfcs/0003-markl-atomic-locks.md` — **supersedes this RFC's §Lock grammar** (2026-07-18); read that RFC for the current lock spelling before implementing against this one.
 - `docs/rfcs/0001-hyphence.md` — the envelope RFC this document extends.
 - `docs/man.7/hyphence.md` — tutorial / reference manual, updated for this RFC's content grammar including the 2026-07-18 trailing-comment revision ([linenisgreat/hyphence#4](https://code.linenisgreat.com/linenisgreat/hyphence/issues/4)).
 - cutting-garden `docs/rfcs/0014-trellis-query-language.md` and `docs/rfcs/0014-trellis.peg` — the normative grammar this RFC's productions are specified against.

@@ -79,3 +79,20 @@ id-less-field-lock	LS0tCiEgb3JnYW5pemUKLSBfYmFzZT1AYmxha2UyYjI1Ni1qa2wKLS0tCg==	
 #   trailing-comment-quoting-composes : "---\n! task\n- note=\"50% done\" % real comment\n---\n"
 
 trailing-comment-quoting-composes	LS0tCiEgdGFzawotIG5vdGU9IjUwJSBkb25lIiAlIHJlYWwgY29tbWVudAotLS0K	document/parse-ok	-
+
+# RFC 0003 (supersedes RFC 0002 §Lock grammar, 2026-07-18): a locked
+# value is one atomic purpose-full markl id (no space before `@`),
+# not a `SP @digest` suffix. unified-lock-type/unified-lock-reference/
+# deprecated-angle-still-accepted above still decode fine (content is
+# opaque at this envelope layer either way) but no longer demonstrate
+# the canonical spelling — see RFC 0003 §Test Vectors.
+# Plain-text view:
+#   atomic-lock-type               : "---\n! md@blake2b256-abc\n---\n"
+#   atomic-lock-reference           : "---\n! md\n- one/uno@blake2b256-def\n---\n"
+#   atomic-lock-typed-edge           : "---\n! task\n- blocks=task/other@blake2b256-ghi\n---\n"
+#   atomic-key-material-papi-shape  : "---\n! task\n- piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-qqxyz\n---\n"
+
+atomic-lock-type	LS0tCiEgbWRAYmxha2UyYjI1Ni1hYmMKLS0tCg==	legacy/parse-ok	-
+atomic-lock-reference	LS0tCiEgbWQKLSBvbmUvdW5vQGJsYWtlMmIyNTYtZGVmCi0tLQo=	document/parse-ok	-
+atomic-lock-typed-edge	LS0tCiEgdGFzawotIGJsb2Nrcz10YXNrL290aGVyQGJsYWtlMmIyNTYtZ2hpCi0tLQo=	document/parse-ok	-
+atomic-key-material-papi-shape	LS0tCiEgdGFzawotIHBpZ2d5LXBpdl9hdXRoLXYxQHNzaF9lY2RzYV9uaXN0cDI1Nl9wdWItcXF4eXoKLS0tCg==	document/parse-ok	-
