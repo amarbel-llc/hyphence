@@ -92,7 +92,7 @@ fn rfc_test_vectors() {
     }
 
     assert_eq!(
-        ran, 6,
-        "expected to exercise all six RFC vectors, ran {ran}"
+        ran, 7,
+        "expected to exercise all seven RFC vectors, ran {ran}"
     );
 }

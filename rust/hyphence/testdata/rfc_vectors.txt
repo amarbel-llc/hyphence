@@ -46,3 +46,21 @@ body-without-separator	LS0tCiEgdG9tbC10eXBlLXYxCi0tLQpmaWxlLWV4dGVuc2lvbiA9ICdwb
 invalid-prefix-X	LS0tCiEgbWQKWCBiYWQKLS0tCgo=	document/parse-error-invalid-prefix	-
 malformed-no-space	LS0tCiFub3NwYWNlCi0tLQoK	document/parse-error-malformed-line	-
 inline-body-with-at-ref	LS0tCkAgYmxha2UyYjI1Ni1hYmMKISBtZAotLS0KCmlubGluZQo=	document/parse-error-inline-body-with-at	-
+
+# New vectors for RFC 0002 (content grammar). Content is still opaque at
+# this envelope-level harness (RFC 0001 §Conformance); this demonstrates
+# that RFC 0002's unified lock spelling remains RFC 0001-envelope-conforming.
+# Plain-text view:
+#   unified-lock-type : "---\n! md @blake2b256-abc\n---\n"
+#
+# Vectors for the RFC 0002 `-`/`<` forms (reference locks, field
+# predicates, the deprecated `<` synonym) are deliberately NOT added here:
+# legacy/parse-ok's decoder (TypedMetadataCoderDefault) only wires `!`
+# and `@` prefixes, and the document/ harness has no parse-ok outcome
+# defined yet. Adding them requires an implementation-side harness
+# (a document/parse-ok Go case, plus parity in rust/hyphence's
+# conformance.rs, which has no unrecognized-namespace skip path unlike
+# the Go split) — out of scope for a spec-only pass. See RFC 0002 §Test
+# Vectors.
+
+unified-lock-type	LS0tCiEgbWQgQGJsYWtlMmIyNTYtYWJjCi0tLQo=	legacy/parse-ok	-
