@@ -95,7 +95,7 @@ fn rfc_test_vectors() {
     }
 
     assert_eq!(
-        ran, 16,
-        "expected to exercise all sixteen RFC vectors, ran {ran}"
+        ran, 18,
+        "expected to exercise all eighteen RFC vectors, ran {ran}"
     );
 }

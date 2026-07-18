@@ -96,3 +96,12 @@ atomic-lock-type	LS0tCiEgbWRAYmxha2UyYjI1Ni1hYmMKLS0tCg==	legacy/parse-ok	-
 atomic-lock-reference	LS0tCiEgbWQKLSBvbmUvdW5vQGJsYWtlMmIyNTYtZGVmCi0tLQo=	document/parse-ok	-
 atomic-lock-typed-edge	LS0tCiEgdGFzawotIGJsb2Nrcz10YXNrL290aGVyQGJsYWtlMmIyNTYtZ2hpCi0tLQo=	document/parse-ok	-
 atomic-key-material-papi-shape	LS0tCiEgdGFzawotIHBpZ2d5LXBpdl9hdXRoLXYxQHNzaF9lY2RzYV9uaXN0cDI1Nl9wdWItcXF4eXoKLS0tCg==	document/parse-ok	-
+
+# RFC 0003 revision (2026-07-18): MarklTerm's quoted-purpose form and
+# the canonical spaced `=` field emission this revision standardizes.
+# Plain-text view:
+#   quoted-purpose-marklterm : "---\n! task\n- \"my thing\"@blake2b256-xyz\n---\n"
+#   spaced-field-emission    : "---\n! task\n- due = \"2026-08-01\"\n---\n"
+
+quoted-purpose-marklterm	LS0tCiEgdGFzawotICJteSB0aGluZyJAYmxha2UyYjI1Ni14eXoKLS0tCg==	document/parse-ok	-
+spaced-field-emission	LS0tCiEgdGFzawotIGR1ZSA9ICIyMDI2LTA4LTAxIgotLS0K	document/parse-ok	-

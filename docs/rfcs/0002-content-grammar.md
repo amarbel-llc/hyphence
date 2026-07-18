@@ -79,7 +79,7 @@ BlobContent     = String / Ident           ; markl-id, or a file-path (quoted if
 DashContent     = FieldContent / RefContent
 RefContent      = GroundTerm Lock?
 GroundTerm      = String / Ident           ; QuotedRef or bare Ident
-FieldContent    = FieldName "=" FieldRHS
+FieldContent    = FieldName "=" FieldRHS         ; RFC 0003 adds optional SP? around "="
 FieldRHS        = DigestTerm                     ; id-less: purely content-addressed target
                 / FieldValue (SP DigestTerm)?    ; normal: value, optionally locked
 FieldValue      = String / Bareword
@@ -186,6 +186,8 @@ The `<` PREFIX character ("explicit object reference," RFC 0001 §Metadata Lines
 RFC 0001 §Encoder Behavior names an "aliased object references" bucket without ever defining alias syntax — a forward reference RFC 0001 left open. This RFC formalizes that as an explicitly **reserved, unspecified** slot: a future RFC MAY define alias syntax for reference-valued content (per RFC 0001 §Conformance "Wire-format extensions," such a definition would itself need to be a superseding or extending RFC if it changes accepted content shapes). No grammar is defined here. Per the canonical-order collapse above, whenever aliasing is specified, an aliased line remains an ordinary `-` line and does not need its own canonical-order bucket.
 
 This slot is deferred by the same consumer design (cutting-garden's organize-upstreaming) that motivates the rest of this RFC; it is not expected to be filled by RFC 0002.
+
+> **Update 2026-07-18.** "No grammar is defined here" turned out to be premature — RFC 0003 §Reference aliasing: truth and direction documents a shipping form (dodder's content-internal `" < "` **binding** operator, distinct from the "short local name" aliasing this section anticipated) and states confirmed semantics as direction. The full grammar remains deferred, now to a named future RFC 0004 rather than an unnamed "a future RFC." Read RFC 0003 before implementing against this section.
 
 ## Canonical order across media
 
