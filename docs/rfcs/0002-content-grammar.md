@@ -66,7 +66,8 @@ CONTENT[<]  = DashContent               ; deprecated synonym, see "`<` Deprecati
 CONTENT[%]  = opaque                    ; unchanged from RFC 0001
 
 TypeContent  = Ident Lock?
-BlobContent  = Ident
+BlobContent  = String / Ident           ; markl-id, or a file-path (quoted if it
+                                         ; contains spaces or reserved runes)
 DashContent  = FieldContent / RefContent
 RefContent   = GroundTerm Lock?
 GroundTerm   = String / Ident           ; QuotedRef or bare Ident
@@ -163,7 +164,7 @@ What each line kind means at dodder type/object/blob resolution time. This secti
 |---|---|
 | `! Ident` | object type identifier; resolves to a type definition object |
 | `! Ident Lock` | as above, pinned to a specific type-definition blob digest |
-| `@ Ident` | blob reference (markl-id or file-path) — content-addressed pointer to the object's own blob |
+| `@ BlobContent` | blob reference (markl-id or file-path, quoted per `BlobContent = String / Ident` when it contains spaces or reserved runes) — content-addressed pointer to the object's own blob |
 | `- Ident` / `- String` (GroundTerm, no `=`) | opaque identifier; **tag-vs-reference resolves through the type system at consumption**, not from `/` or any other token shape. An identifier the type system cannot resolve to an object **degrades to tag-as-string** — matching dodder's existing unmaterialized-tag behavior. |
 | `- GroundTerm Lock` | as above, additionally pinned: the resolved reference is locked to the content digest of the referenced object as of write time |
 | `- FieldName=FieldValue` | scalar field predicate on the current object. `FieldName` resolves via the type-defined field index (dodder FDR 0017). |
@@ -173,6 +174,8 @@ What each line kind means at dodder type/object/blob resolution time. This secti
 | `<` (any content) | identical resolution to the equivalent `-` line (deprecated synonym) |
 | `#` | free text description; unaffected by this RFC |
 | `%` | opaque comment; unaffected by this RFC |
+
+A `Lock` on a field line implies the field's value is a reference — i.e. `- FieldName=FieldValue Lock` is always a typed edge, never a locked scalar. `- due="2026-08-01" @blake2b256-…` (locking a plainly-scalar value like a date) is grammatically well-formed per the productions above but its resolution-time meaning is **undefined by this RFC**, reserved for a future RFC to specify (or reject) should a use case arise.
 
 ## Decoder Behavior (amendments to RFC 0001)
 
