@@ -79,6 +79,8 @@ Lock         = SP DigestTerm
 
 `DashContent` is ordered `FieldContent / RefContent`: a line whose content contains an unescaped `=` between a `FieldName` and a value is a field line; otherwise it is a reference/tag line. This is the same "syntactically distinct... under the trellis grammar" test point 4 of the originating issue describes — `FieldPred` is tried before the bare-identifier alternatives in trellis's own `BasicTerm`, and hyphence inherits that ordering.
 
+`FieldRHS`'s `DigestTerm` alternative (the id-less form, e.g. `_base=@blake2b256-…`) depends on a trellis-side grammar change that has not landed as of this writing: `0014-trellis.peg`'s `Value <- String / Bareword` does not admit `DigestTerm` today. Confirmed 2026-07-18: trellis's `Value` production will be extended upstream (RFC 0014) to add a `DigestTerm` alternative, rather than hyphence defining a local, trellis-incompatible extension — see **Open Questions** for how this was surfaced and resolved. Until that upstream change lands, `FieldRHS = DigestTerm` here is forward-declared against it.
+
 ### Lock grammar
 
 RFC 0001 had two inconsistent, informally-specified lock spellings:
@@ -101,6 +103,8 @@ Concretely: `! md @blake2b256-…`, `- one/uno @blake2b256-…`, `- blocks=task/
 
 A field line (`- key=value`) is a ground field predicate: `FieldName "=" FieldValue`, closing the isometry gap with box format's `key=value` interior syntax. No new PREFIX character is introduced — fields ride the existing `-` (and deprecated `<`) content grammar, disambiguated from bare references by the presence of `FieldName "="`.
 
+`FieldName`'s trellis production (`String / Ident`) permits a *quoted* field name — the same escape hatch trellis itself uses for names containing reserved runes (`"event.summary"*="standup"` is a trellis RFC 0014 conformance vector). This RFC inherits that unmodified, so a quoted field name is legal hyphence content too: `- "event.summary"="standup"`. Confirmed intended (2026-07-18), not merely an incidental consequence of grammar reuse.
+
 A **reference-valued field with a lock** is a typed edge:
 
 ```
@@ -115,7 +119,7 @@ The **id-less form** omits the target identifier entirely, for purely content-ad
 - _base=@blake2b256-…
 ```
 
-This is the `FieldRHS = DigestTerm` alternative above — the `@digest` sits directly where `FieldValue` would otherwise go, with no separating `SP` (contrast the locked form, where `SP DigestTerm` follows a `FieldValue`). See **Open Questions** for a caveat on this alternative's relationship to trellis's own `FieldPred` grammar.
+This is the `FieldRHS = DigestTerm` alternative above — the `@digest` sits directly where `FieldValue` would otherwise go, with no separating `SP` (contrast the locked form, where `SP DigestTerm` follows a `FieldValue`). As noted in "Per-line-kind productions," this alternative is forward-declared against an upstream trellis grammar extension (`Value` gaining a `DigestTerm` alternative) that had not landed as of this RFC's drafting — see **Open Questions**.
 
 ### The `/`-shape convention is deleted
 
@@ -196,10 +200,12 @@ A conforming encoder:
 
 ## Open Questions
 
-These are ambiguities or contradictions surfaced while writing the productions above. They are **not** resolved by this RFC and are not part of the six confirmed design points from issue #2 — flagging them here rather than choosing silently.
+These were ambiguities or contradictions surfaced while writing the productions above — not part of the six confirmed design points from issue #2, so flagged here rather than resolved silently. Both were put to Sasha and confirmed 2026-07-18; recorded below for provenance (original problem statement, then disposition).
 
-1. **The id-less field form is not valid trellis `FieldPred` syntax.** `FieldRHS = DigestTerm` (e.g. `_base=@blake2b256-…`) is defined above by giving hyphence's `FieldContent` a second alternative alongside `FieldValue (SP DigestTerm)?`. But trellis's own `FieldPred <- FieldName SP? FieldOp SP? (ValueList / Value)` has `Value <- String / Bareword`, and `Bareword <- IdentRune+` excludes `@` (a `Reserved` rune) — so `@blake2b256-…` cannot appear as a trellis `Value` under the grammar as written in `0014-trellis.peg`. This means a hyphence line using the id-less form is **not** parseable as a valid trellis ground term under the isometry claim ("every hyphence line is also a valid trellis literal") that motivates point 1 of the originating issue — it's a hyphence-local extension riding on trellis's `DigestTerm` token but composed in a way trellis's own `FieldPred` doesn't sanction. Options, none chosen here: (a) extend trellis's `Value` production upstream to admit `DigestTerm` — an RFC 0014 change, out of scope for this RFC; (b) accept that the id-less form breaks strict trellis-parseability as a narrow, documented exception; (c) require a target identifier always, dropping the id-less form and instead spelling a content-addressed-only edge some other way (unspecified). Needs a decision from Sasha.
-2. **Field-line `FieldName` quoting scope.** Trellis's `FieldName <- String / Ident` permits a *quoted* field name (`"event.summary"*="standup"` in the trellis conformance vectors) as an escape hatch for names containing reserved runes. This RFC's `FieldContent` production inherits `FieldName` unmodified, so quoted field names are implicitly legal in hyphence `-` lines too (e.g. `- "event.summary"="standup"`). The originating issue's six points don't mention this case one way or the other; it may be an intended, free consequence of grammar reuse, or an unconsidered corner. Not resolved here.
+1. **The id-less field form is not valid trellis `FieldPred` syntax.** `FieldRHS = DigestTerm` (e.g. `_base=@blake2b256-…`) is defined above by giving hyphence's `FieldContent` a second alternative alongside `FieldValue (SP DigestTerm)?`. But trellis's own `FieldPred <- FieldName SP? FieldOp SP? (ValueList / Value)` has `Value <- String / Bareword`, and `Bareword <- IdentRune+` excludes `@` (a `Reserved` rune) — so `@blake2b256-…` cannot appear as a trellis `Value` under the grammar as written in `0014-trellis.peg`. This means a hyphence line using the id-less form was **not** parseable as a valid trellis ground term under the isometry claim ("every hyphence line is also a valid trellis literal") that motivates point 1 of the originating issue.
+   **Resolved:** trellis fixes `Value` upstream — RFC 0014's `Value` production gains a `DigestTerm` alternative, rather than hyphence defining a local, trellis-incompatible extension. This RFC's `FieldRHS = DigestTerm` alternative is therefore forward-declared against that upstream change (see "Per-line-kind productions" and "Field lines and reference-valued fields"); it is not a hyphence-local grammar deviation. Tracked upstream as [linenisgreat/cutting-garden#144](https://code.linenisgreat.com/linenisgreat/cutting-garden/issues/144).
+2. **Field-line `FieldName` quoting scope.** Trellis's `FieldName <- String / Ident` permits a *quoted* field name (`"event.summary"*="standup"` in the trellis conformance vectors) as an escape hatch for names containing reserved runes. This RFC's `FieldContent` production inherits `FieldName` unmodified, so quoted field names are implicitly legal in hyphence `-` lines too (e.g. `- "event.summary"="standup"`). The originating issue's six points don't mention this case one way or the other.
+   **Resolved:** intended, not an accident of grammar reuse — documented explicitly in "Field lines and reference-valued fields."
 
 ## Test Vectors
 
@@ -227,4 +233,5 @@ Closing this gap is Go **and** Rust implementation work — out of scope for thi
 - [linenisgreat/hyphence#2](https://code.linenisgreat.com/linenisgreat/hyphence/issues/2) — the issue this RFC implements (six-point proposal, confirmed by Sasha in a grill session).
 - dodder FDR 0017 ("field index"), FDR 0018 ("Genre as a Type-Defined Field") — cited by the Semantic Translation section.
 - [linenisgreat/hyphence#128](https://code.linenisgreat.com/linenisgreat/hyphence/issues/128) — the locked/aliased/bare rank distinction this RFC's canonical-order collapse resolves.
+- [linenisgreat/cutting-garden#144](https://code.linenisgreat.com/linenisgreat/cutting-garden/issues/144) — upstream tracking issue for the trellis RFC 0014 `Value` extension the id-less field-lock form depends on (Open Questions #1).
 - [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) — normative-language conventions.
