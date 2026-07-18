@@ -367,6 +367,13 @@ func TestDocumentRFCConformance(t *testing.T) {
 
 func runDocumentVector(t *testing.T, name string, input []byte, outcome string) {
 	switch outcome {
+	case "document/parse-ok":
+		v := &MetadataValidator{}
+		reader := Reader{RequireMetadata: true, Metadata: v, Blob: discardReaderFrom{}}
+		_, err := reader.ReadFrom(bytes.NewReader(input))
+		if err != nil {
+			t.Errorf("expected parse-ok, got error: %v", err)
+		}
 	case "document/parse-error-invalid-prefix":
 		v := &MetadataValidator{}
 		reader := Reader{RequireMetadata: true, Metadata: v, Blob: discardReaderFrom{}}

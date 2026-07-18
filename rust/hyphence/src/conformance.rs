@@ -77,6 +77,9 @@ fn rfc_test_vectors() {
             "legacy/parse-error-missing-separator" => {
                 assert_eq!(result, Err(Error::MissingSeparator), "{name}");
             }
+            "document/parse-ok" => {
+                result.unwrap_or_else(|e| panic!("{name}: expected parse-ok, got {e:?}"));
+            }
             "document/parse-error-invalid-prefix" => {
                 assert_eq!(result, Err(Error::InvalidPrefix), "{name}");
             }
@@ -92,7 +95,7 @@ fn rfc_test_vectors() {
     }
 
     assert_eq!(
-        ran, 7,
-        "expected to exercise all seven RFC vectors, ran {ran}"
+        ran, 11,
+        "expected to exercise all eleven RFC vectors, ran {ran}"
     );
 }

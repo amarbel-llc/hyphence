@@ -214,19 +214,19 @@ These were ambiguities or contradictions surfaced while writing the productions 
 
 New vectors are **appended** to the existing canonical vector file, per RFC 0001 §Test Vectors' convention (`NAME \t INPUT-B64 \t OUTCOME \t EXPECTED-B64`); per that same section, removing a vector requires a superseding RFC, so this RFC only adds. The file is kept byte-identical across `go/hyphence/testdata/rfc_vectors.txt` and `rust/hyphence/testdata/rfc_vectors.txt` by the `vectors-equality` flake check; both were updated identically.
 
-Only one vector was actually appended, for a reason worth recording precisely (discovered while wiring this RFC's vectors against the live harnesses, running the default gate):
+Five vectors are appended, exercising the two envelope-level outcomes capable of testing RFC 0002's new content spellings at the envelope layer (content itself remains opaque to both — these prove RFC 0001-envelope-conformance, not content-grammar validity):
 
-| Name | Demonstrates |
-|---|---|
-| `unified-lock-type` | `! md @blake2b256-abc` — new type-lock spelling (space-separated, `@`-joined), decoded successfully by the existing `legacy/parse-ok` harness |
+| Name | Outcome | Demonstrates |
+|---|---|---|
+| `unified-lock-type` | `legacy/parse-ok` | `! md @blake2b256-abc` — new type-lock spelling (space-separated, `@`-joined) |
+| `unified-lock-reference` | `document/parse-ok` | `- one/uno @blake2b256-def` — new reference-lock spelling |
+| `field-predicate-line` | `document/parse-ok` | `- due="2026-08-01"` — a field line, quoted value, no lock |
+| `deprecated-angle-still-accepted` | `document/parse-ok` | `< blocks=other/task @blake2b256-ghi` — deprecated `<` PREFIX still envelope-decodes, carrying a locked field/typed-edge line |
+| `id-less-field-lock` | `document/parse-ok` | `- _base=@blake2b256-jkl` — the id-less typed-edge form |
 
-The `-`/`<`-shaped forms this RFC introduces (reference locks, field predicates, the deprecated `<` synonym, the id-less field-lock) are **not** represented as vectors yet, and were deliberately left out rather than forced through an ill-fitting existing outcome:
+`legacy/parse-ok`'s decoder (`TypedMetadataCoderDefault`, `go/hyphence/coder_metadata.go`) only wires the `!` and `@` prefixes, so it can't exercise the `-`/`<` forms — those needed the six-prefix decoder instead. `document/*` (the `Reader` + `MetadataValidator` harness in `go/hyphence/document_test.go`) already accepts all six prefixes but had no `parse-ok` outcome; a `document/parse-ok` case (decode via `Reader`+`MetadataValidator`, assert success) was added alongside these vectors.
 
-- `legacy/parse-ok`'s decoder (`TypedMetadataCoderDefault`, `go/hyphence/coder_metadata.go`) only wires the `!` and `@` prefixes — it errors ("exhausted FuncSetString'ers") on any document containing a `-`, `<`, `#`, or `%` line, regardless of that line's content. It is not a general envelope-conformance check despite the name; it only covers the type+blob-only path. This was discovered empirically: vectors for the reference-lock and field forms were written and initially failed the default gate under this outcome.
-- `document/*` (the `Reader` + `MetadataValidator` harness in `go/hyphence/document_test.go`, which does accept all six prefixes) has no `parse-ok` outcome implemented — only three error outcomes exist today.
-- Even if a `document/parse-ok` outcome were added to Go, `rust/hyphence/src/conformance.rs` has no mechanism to skip an outcome namespace it doesn't own — unlike Go's two-harness split (each skips outcomes outside its own `legacy/`/`document/` prefix, per the vector file's own header comment describing this as intentional multi-owner design), Rust's single `rfc_test_vectors` test panics on any unrecognized outcome string. Adding vectors in a new namespace (e.g. `content-grammar/parse-ok`) without also giving Rust a matching skip path would turn `checks.rust-test` red.
-
-Closing this gap is Go **and** Rust implementation work — out of scope for this spec-only pass, per the task constraint that motivated this RFC draft. It is tracked here so the follow-up is well-specified rather than rediscovered: (1) add a `document/parse-ok` outcome to `document_test.go`'s `runDocumentVector`, decoding via `Reader`+`MetadataValidator` and asserting success; (2) give `rust/hyphence/src/conformance.rs` an unrecognized-namespace skip path mirroring Go's, so the vector file's documented multi-harness convention actually holds across both implementations; (3) then append vectors for the reference-lock, field-predicate, `<`-deprecation, and id-less-lock forms under whichever outcome that work lands on. Tracked as [linenisgreat/hyphence#3](https://code.linenisgreat.com/linenisgreat/hyphence/issues/3).
+On the Rust side, `rust/hyphence/src/conformance.rs`'s single `rfc_test_vectors` harness turned out not to need the unrecognized-namespace skip path this RFC originally called for: `Document::decode` (`rust/hyphence/src/decode.rs`) is a single unified decoder that already validates all six prefixes in one pass (unlike Go's legacy/document split), so `document/parse-ok` is directly implementable there too — a real match arm (`result.unwrap_or_else(|e| panic!(...))`), not a skip. Both Go and Rust genuinely decode-and-assert-success on all five new vectors; nothing is silently skipped. Implemented in [linenisgreat/hyphence#3](https://code.linenisgreat.com/linenisgreat/hyphence/issues/3).
 
 ## See Also
 

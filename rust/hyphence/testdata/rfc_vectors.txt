@@ -48,19 +48,25 @@ malformed-no-space	LS0tCiFub3NwYWNlCi0tLQoK	document/parse-error-malformed-line	
 inline-body-with-at-ref	LS0tCkAgYmxha2UyYjI1Ni1hYmMKISBtZAotLS0KCmlubGluZQo=	document/parse-error-inline-body-with-at	-
 
 # New vectors for RFC 0002 (content grammar). Content is still opaque at
-# this envelope-level harness (RFC 0001 §Conformance); this demonstrates
-# that RFC 0002's unified lock spelling remains RFC 0001-envelope-conforming.
-# Plain-text view:
-#   unified-lock-type : "---\n! md @blake2b256-abc\n---\n"
+# these envelope-level harnesses (RFC 0001 §Conformance) — none of these
+# vectors exercise RFC 0002's content-grammar productions themselves, only
+# that documents using RFC 0002's new content spellings remain RFC
+# 0001-envelope-conforming, per RFC 0002's "existing decoders remain
+# conforming" scope boundary. legacy/parse-ok's decoder
+# (TypedMetadataCoderDefault) only wires `!` and `@`, so the unified-lock
+# form on a `!` line is the only one that fits that outcome; the `-`/`<`
+# forms need the full six-prefix decoder (document/parse-ok, added
+# alongside these vectors).
 #
-# Vectors for the RFC 0002 `-`/`<` forms (reference locks, field
-# predicates, the deprecated `<` synonym) are deliberately NOT added here:
-# legacy/parse-ok's decoder (TypedMetadataCoderDefault) only wires `!`
-# and `@` prefixes, and the document/ harness has no parse-ok outcome
-# defined yet. Adding them requires an implementation-side harness
-# (a document/parse-ok Go case, plus parity in rust/hyphence's
-# conformance.rs, which has no unrecognized-namespace skip path unlike
-# the Go split) — out of scope for a spec-only pass. See RFC 0002 §Test
-# Vectors.
+# Plain-text view:
+#   unified-lock-type              : "---\n! md @blake2b256-abc\n---\n"
+#   unified-lock-reference         : "---\n! md\n- one/uno @blake2b256-def\n---\n"
+#   field-predicate-line           : "---\n! task\n- due=\"2026-08-01\"\n---\n"
+#   deprecated-angle-still-accepted: "---\n! task\n< blocks=other/task @blake2b256-ghi\n---\n"
+#   id-less-field-lock             : "---\n! organize\n- _base=@blake2b256-jkl\n---\n"
 
 unified-lock-type	LS0tCiEgbWQgQGJsYWtlMmIyNTYtYWJjCi0tLQo=	legacy/parse-ok	-
+unified-lock-reference	LS0tCiEgbWQKLSBvbmUvdW5vIEBibGFrZTJiMjU2LWRlZgotLS0K	document/parse-ok	-
+field-predicate-line	LS0tCiEgdGFzawotIGR1ZT0iMjAyNi0wOC0wMSIKLS0tCg==	document/parse-ok	-
+deprecated-angle-still-accepted	LS0tCiEgdGFzawo8IGJsb2Nrcz1vdGhlci90YXNrIEBibGFrZTJiMjU2LWdoaQotLS0K	document/parse-ok	-
+id-less-field-lock	LS0tCiEgb3JnYW5pemUKLSBfYmFzZT1AYmxha2UyYjI1Ni1qa2wKLS0tCg==	document/parse-ok	-
