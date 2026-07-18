@@ -146,6 +146,7 @@
           # commits with this repo's own config (eng tier-B convergence).
           conformistRepair = conformistEval.config.build.repair;
           man7Src = ./docs/man.7;
+          man1Src = ./docs/man.1;
         };
 
         # bats-hyphence: the hermetic CLI integration lane (zz-tests_bats/

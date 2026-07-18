@@ -32,7 +32,7 @@ language-named top-level directory:
 ```
 go/      Go implementation: the hyphence library (package hyphence) + the hyphence CLI (cmd/hyphence)
 rust/    Rust implementation (crate hyphence, RFC 0001 envelope; zero deps, edition 2024)
-docs/    RFC 0001, RFC 0002 + the man.7 manual
+docs/    RFC 0001, RFC 0002 + the man.1 (CLI) and man.7 (format) manuals
 ```
 
 The Go library is dewey-only (no madder-internal imports), so it builds
