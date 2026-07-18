@@ -214,9 +214,10 @@ func TestMetadataValidator_RejectsCarriageReturn(t *testing.T) {
 }
 
 func TestCanonicalize_PrefixOrder(t *testing.T) {
-	// RFC §Canonical Line Order: # → < (locked refs in source order
-	// — we don't yet model the lock distinction, see #128, so all <
-	// stays in source order) → - → @ → !.
+	// RFC 0002 §`<` Deprecation: # → -/< (reference, tag, and field
+	// lines, merged bucket — < is a deprecated synonym of -, so it
+	// shares -'s rank rather than sorting separately, per issue
+	// #128's resolution) → @ → !.
 	doc := &Document{
 		Metadata: []MetadataLine{
 			{Prefix: '!', Value: "md"},
@@ -230,7 +231,7 @@ func TestCanonicalize_PrefixOrder(t *testing.T) {
 
 	Canonicalize(doc)
 
-	wantOrder := []byte{'#', '<', '-', '-', '@', '!'}
+	wantOrder := []byte{'#', '-', '<', '-', '@', '!'}
 	got := make([]byte, len(doc.Metadata))
 	for i, ml := range doc.Metadata {
 		got[i] = ml.Prefix
@@ -239,15 +240,21 @@ func TestCanonicalize_PrefixOrder(t *testing.T) {
 		t.Errorf("prefix order: got %q, want %q", got, wantOrder)
 	}
 
-	// Within the `-` bucket, source order preserved (stable sort).
-	var dashValues []string
+	// Within the merged -/< bucket, source order preserved (stable sort).
+	var bucketValues []string
 	for _, ml := range doc.Metadata {
-		if ml.Prefix == '-' {
-			dashValues = append(dashValues, ml.Value)
+		if ml.Prefix == '-' || ml.Prefix == '<' {
+			bucketValues = append(bucketValues, ml.Value)
 		}
 	}
-	if len(dashValues) != 2 || dashValues[0] != "tag-one" || dashValues[1] != "tag-two" {
-		t.Errorf("dash bucket should preserve source order, got %v", dashValues)
+	wantValues := []string{"tag-one", "object/id", "tag-two"}
+	if len(bucketValues) != len(wantValues) {
+		t.Fatalf("merged bucket size: got %v, want %v", bucketValues, wantValues)
+	}
+	for i := range wantValues {
+		if bucketValues[i] != wantValues[i] {
+			t.Errorf("merged bucket should preserve source order, got %v, want %v", bucketValues, wantValues)
+		}
 	}
 }
 

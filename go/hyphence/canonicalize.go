@@ -3,9 +3,10 @@ package hyphence
 import "sort"
 
 // canonicalOrder maps each metadata prefix to its sort rank per RFC
-// 0001 §Canonical Line Order. Lower rank emits first. The map also
-// serves as the single source of truth for the metadata prefix
-// alphabet — isValidPrefix derives membership from it.
+// 0002 §`<` Deprecation (amending RFC 0001 §Canonical Line Order).
+// Lower rank emits first. The map also serves as the single source
+// of truth for the metadata prefix alphabet — isValidPrefix derives
+// membership from it.
 //
 // Comments ('%') are listed with sentinel rank -1 ("filter-out"):
 // MetadataBuilder captures them as anchored LeadingComments /
@@ -15,16 +16,20 @@ import "sort"
 // sort behavior — if a '%' ever did slip through, it would sort
 // first, which is harmless.
 //
-// Locked vs aliased vs bare object reference distinction is not
-// modeled today (see #128); all '<' lines share rank 1 and rely on
-// stable sort to preserve source order.
+// '<' shares '-'s rank: RFC 0002 deprecates '<' to a synonym of '-',
+// and its side effect on canonical order is that the previously
+// separate locked/aliased/bare object-reference rank (issue #128)
+// collapses into one bucket alongside tags and field lines — a lock
+// is now a suffix property of a '-' line, not a distinct line shape
+// or PREFIX choice. Stable sort preserves source order within the
+// merged bucket.
 var canonicalOrder = map[byte]int{
 	'%': -1, // comment (handled separately by Builder; never appears as a top-level MetadataLine)
 	'#': 0,  // description
-	'<': 1,  // object reference
-	'-': 2,  // tag / reference
-	'@': 3,  // blob reference
-	'!': 4,  // type
+	'-': 1,  // reference, tag, and field lines
+	'<': 1,  // deprecated synonym of '-' (RFC 0002 §`<` Deprecation)
+	'@': 2,  // blob reference
+	'!': 3,  // type
 }
 
 // isValidPrefix reports whether b is a recognized metadata-line

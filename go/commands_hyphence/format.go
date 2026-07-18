@@ -32,12 +32,13 @@ func (cmd Format) GetDescription() futility.Description {
 	return futility.Description{
 		Short: "re-emit canonicalized per RFC §Canonical Line Order",
 		Long: "Read a hyphence document and re-emit it with metadata " +
-			"lines sorted per RFC 0001 §Canonical Line Order: " +
-			"description (#) → object references (<) → tags (-) → blob " +
-			"reference (@) → type (!). Within each prefix, source " +
-			"order is preserved. Comments (%) stay anchored to their " +
-			"following non-comment line. Body bytes pass through " +
-			"unchanged.",
+			"lines sorted per RFC 0002 §`<` Deprecation (amending RFC " +
+			"0001 §Canonical Line Order): description (#) → " +
+			"reference, tag, and field lines (-, including the " +
+			"deprecated < synonym) → blob reference (@) → type (!). " +
+			"Within the -/< bucket, source order is preserved. " +
+			"Comments (%) stay anchored to their following non-comment " +
+			"line. Body bytes pass through unchanged.",
 	}
 }
 
