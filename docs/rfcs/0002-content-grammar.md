@@ -2,6 +2,9 @@
 status: proposed
 date: 2026-07-18
 authors: Sasha F (with Clown)
+revised: 2026-07-18 (add trailing line comments on structured metadata
+  lines — `!`/`@`/`-`/`<` only, never `#` free text; motivated by inline
+  annotation of dodder repo/workspace/type configs)
 ---
 
 # RFC 0002 — Content Grammar
@@ -12,7 +15,7 @@ Proposed. Will move to `accepted` upon merge of this RFC.
 
 ## Abstract
 
-RFC 0001 specifies hyphence's envelope — boundaries, metadata-line prefixes, and body separation — and leaves each metadata line's `CONTENT` deliberately opaque ("arbitrary UTF-8 except LF"). This RFC specifies that content: a grammar for what may appear after each `PREFIX SP`, defined by reuse of the lexical and per-term productions of trellis (cutting-garden RFC 0014, `0014-trellis-query-language.md` + `0014-trellis.peg`), the query/data language dodder and cutting-garden are converging on. It deletes the `/`-shape convention for distinguishing tags from references, unifies the two existing lock spellings into one appended `@digest` form, gives fields a syntax with no new PREFIX character, and defines reference-valued fields as typed edges. It does not touch the envelope: every RFC 0001-conforming decoder remains conforming, because content-grammar validation is an additional, optional layer on top of RFC 0001's opaque-content model.
+RFC 0001 specifies hyphence's envelope — boundaries, metadata-line prefixes, and body separation — and leaves each metadata line's `CONTENT` deliberately opaque ("arbitrary UTF-8 except LF"). This RFC specifies that content: a grammar for what may appear after each `PREFIX SP`, defined by reuse of the lexical and per-term productions of trellis (cutting-garden RFC 0014, `0014-trellis-query-language.md` + `0014-trellis.peg`), the query/data language dodder and cutting-garden are converging on. It deletes the `/`-shape convention for distinguishing tags from references, unifies the two existing lock spellings into one appended `@digest` form, gives fields a syntax with no new PREFIX character, defines reference-valued fields as typed edges, and (as of the 2026-07-18 revision) adds an optional trailing comment on structured metadata lines, distinct from RFC 0001's line-prefix `%` comments. It does not touch the envelope: every RFC 0001-conforming decoder remains conforming, because content-grammar validation is an additional, optional layer on top of RFC 0001's opaque-content model.
 
 ## Notational Conventions
 
@@ -58,24 +61,25 @@ These restrictions mean hyphence content productions below are a strict subset o
 Informal notation, matching RFC 0001's style (not PEG); production names in `PascalCase` not listed here are trellis productions cited above.
 
 ```
-CONTENT[!]  = TypeContent
-CONTENT[@]  = BlobContent
-CONTENT[#]  = free text                 ; unchanged from RFC 0001
-CONTENT[-]  = DashContent
-CONTENT[<]  = DashContent               ; deprecated synonym, see "`<` Deprecation"
-CONTENT[%]  = opaque                    ; unchanged from RFC 0001
+CONTENT[!]  = TypeContent TrailingComment?
+CONTENT[@]  = BlobContent TrailingComment?
+CONTENT[#]  = free text                 ; unchanged from RFC 0001; no TrailingComment, see below
+CONTENT[-]  = DashContent TrailingComment?
+CONTENT[<]  = DashContent TrailingComment?    ; deprecated synonym, see "`<` Deprecation"
+CONTENT[%]  = opaque                    ; unchanged from RFC 0001; no TrailingComment, see below
 
-TypeContent  = Ident Lock?
-BlobContent  = String / Ident           ; markl-id, or a file-path (quoted if it
-                                         ; contains spaces or reserved runes)
-DashContent  = FieldContent / RefContent
-RefContent   = GroundTerm Lock?
-GroundTerm   = String / Ident           ; QuotedRef or bare Ident
-FieldContent = FieldName "=" FieldRHS
-FieldRHS     = DigestTerm                     ; id-less: purely content-addressed target
-             / FieldValue (SP DigestTerm)?    ; normal: value, optionally locked
-FieldValue   = String / Bareword
-Lock         = SP DigestTerm
+TypeContent     = Ident Lock?
+BlobContent     = String / Ident           ; markl-id, or a file-path (quoted if it
+                                            ; contains spaces or reserved runes)
+DashContent     = FieldContent / RefContent
+RefContent      = GroundTerm Lock?
+GroundTerm      = String / Ident           ; QuotedRef or bare Ident
+FieldContent    = FieldName "=" FieldRHS
+FieldRHS        = DigestTerm                     ; id-less: purely content-addressed target
+                / FieldValue (SP DigestTerm)?    ; normal: value, optionally locked
+FieldValue      = String / Bareword
+Lock            = SP DigestTerm
+TrailingComment = SP "%" (!LF .)*
 ```
 
 `DashContent` is ordered `FieldContent / RefContent`: a line whose content contains an unescaped `=` between a `FieldName` and a value is a field line; otherwise it is a reference/tag line. This is the same "syntactically distinct... under the trellis grammar" test point 4 of the originating issue describes — `FieldPred` is tried before the bare-identifier alternatives in trellis's own `BasicTerm`, and hyphence inherits that ordering.
@@ -125,6 +129,31 @@ This is the `FieldRHS = DigestTerm` alternative above — the `@digest` sits dir
 ### The `/`-shape convention is deleted
 
 RFC 0001's informal rule — "bare values are tags; values containing `/` are object references" — is deleted. It was designed when object ids were transparent and syntactically required `/`; dodder's direction (dodder FDR 0018) and trellis make identifiers opaque, with tag-vs-reference resolved through the type system at consumption, never from token shape. A `-` line's `GroundTerm` content (when not a `FieldContent`) is simply an opaque `Ident` or `String` — `/` carries no grammatical significance. See "Semantic Translation" for the resolution-time behavior this enables.
+
+### Trailing comments
+
+Metadata lines on the structured line kinds — `!`, `@`, `-`, and the deprecated `<` — MAY carry a trailing comment: an inert annotation appended after the line's complete content.
+
+```
+TrailingComment = SP "%" (!LF .)*
+```
+
+Concretely: `! md % draft type, not yet stable`, `- blocks=other/task @blake2b256-… % pinned at standup`. `%` is unambiguous as the comment marker here — it is a `Reserved` rune (see "Lexical foundation") with no role inside metadata content, so it cannot appear unquoted inside an `Ident`, `Bareword`, or `FieldName`. Recognition is grammar-level, not a naive scan for `%`: the trailing-comment check runs only after the line's `TypeContent`/`BlobContent`/`DashContent` has already been parsed, so a `%` inside a quoted value is content, not a comment boundary — `- note="50% done" % real comment` parses as `FieldContent = note="50% done"` followed by `TrailingComment = % real comment`.
+
+**Semantics.** A trailing comment is inert annotation entangled with its **own** line — contrast RFC 0001's `%`-PREFIX comment lines, which entangle with the metadata line that *follows* them (RFC 0001 §Metadata Lines: "Each comment is entangled with the non-comment line that follows it"). Content-preserving encoders (per RFC 0001 §Encoder Behavior's round-trip requirement) MUST preserve a trailing comment on re-emission. A trailing comment carries no resolution-time meaning — it does not appear as a row in the Semantic Translation table below.
+
+This is distinct from the **derived-atom `%` marker** used on body/box surfaces (a `%` immediately prefixing a term, no space) — that marker never appears on a hyphence metadata line; it belongs to a different surface entirely.
+
+**Implementation note.** Consumers MUST parse the line per its structured production, not string-split on `%` — a naive split on the first `" %"` substring would incorrectly treat `- note="50% done"` (no trailing comment present; the `%` is inside a quoted value) as though a comment followed.
+
+### Trailing comments do not apply to free text
+
+Trailing comments MUST NOT be recognized on free-text-bearing positions:
+
+- `#` description lines (RFC 0001 §Metadata Lines: "Free text").
+- Description trailers on espalier/organize object-line surfaces that reference this grammar (trellis RFC 0014 §Isometry: "the description trailer corresponds to the `description` virtual field").
+
+Free text runs to end-of-line by definition; scanning it for a trailing `% ...` is undecidable in general — a description that happens to end with a literal `%` cannot be distinguished from one ending in an intended comment — and would silently eat user content. This is the same reasoning that keeps `#` content outside every other structured production in this RFC: description text is opaque prose, not a parsed grammar.
 
 ## `<` Deprecation
 
@@ -214,7 +243,7 @@ These were ambiguities or contradictions surfaced while writing the productions 
 
 New vectors are **appended** to the existing canonical vector file, per RFC 0001 §Test Vectors' convention (`NAME \t INPUT-B64 \t OUTCOME \t EXPECTED-B64`); per that same section, removing a vector requires a superseding RFC, so this RFC only adds. The file is kept byte-identical across `go/hyphence/testdata/rfc_vectors.txt` and `rust/hyphence/testdata/rfc_vectors.txt` by the `vectors-equality` flake check; both were updated identically.
 
-Five vectors are appended, exercising the two envelope-level outcomes capable of testing RFC 0002's new content spellings at the envelope layer (content itself remains opaque to both — these prove RFC 0001-envelope-conformance, not content-grammar validity):
+Six vectors are appended, exercising the two envelope-level outcomes capable of testing RFC 0002's new content spellings at the envelope layer (content itself remains opaque to both — these prove RFC 0001-envelope-conformance, not content-grammar validity):
 
 | Name | Outcome | Demonstrates |
 |---|---|---|
@@ -223,15 +252,16 @@ Five vectors are appended, exercising the two envelope-level outcomes capable of
 | `field-predicate-line` | `document/parse-ok` | `- due="2026-08-01"` — a field line, quoted value, no lock |
 | `deprecated-angle-still-accepted` | `document/parse-ok` | `< blocks=other/task @blake2b256-ghi` — deprecated `<` PREFIX still envelope-decodes, carrying a locked field/typed-edge line |
 | `id-less-field-lock` | `document/parse-ok` | `- _base=@blake2b256-jkl` — the id-less typed-edge form |
+| `trailing-comment-quoting-composes` | `document/parse-ok` | `- note="50% done" % real comment` — a trailing comment coexisting with a `%` inside a quoted field value, the case "Trailing comments" calls out explicitly |
 
 `legacy/parse-ok`'s decoder (`TypedMetadataCoderDefault`, `go/hyphence/coder_metadata.go`) only wires the `!` and `@` prefixes, so it can't exercise the `-`/`<` forms — those needed the six-prefix decoder instead. `document/*` (the `Reader` + `MetadataValidator` harness in `go/hyphence/document_test.go`) already accepts all six prefixes but had no `parse-ok` outcome; a `document/parse-ok` case (decode via `Reader`+`MetadataValidator`, assert success) was added alongside these vectors.
 
-On the Rust side, `rust/hyphence/src/conformance.rs`'s single `rfc_test_vectors` harness turned out not to need the unrecognized-namespace skip path this RFC originally called for: `Document::decode` (`rust/hyphence/src/decode.rs`) is a single unified decoder that already validates all six prefixes in one pass (unlike Go's legacy/document split), so `document/parse-ok` is directly implementable there too — a real match arm (`result.unwrap_or_else(|e| panic!(...))`), not a skip. Both Go and Rust genuinely decode-and-assert-success on all five new vectors; nothing is silently skipped. Implemented in [linenisgreat/hyphence#3](https://code.linenisgreat.com/linenisgreat/hyphence/issues/3).
+On the Rust side, `rust/hyphence/src/conformance.rs`'s single `rfc_test_vectors` harness turned out not to need the unrecognized-namespace skip path this RFC originally called for: `Document::decode` (`rust/hyphence/src/decode.rs`) is a single unified decoder that already validates all six prefixes in one pass (unlike Go's legacy/document split), so `document/parse-ok` is directly implementable there too — a real match arm (`result.unwrap_or_else(|e| panic!(...))`), not a skip. Both Go and Rust genuinely decode-and-assert-success on all six new vectors; nothing is silently skipped. Implemented in [linenisgreat/hyphence#3](https://code.linenisgreat.com/linenisgreat/hyphence/issues/3).
 
 ## See Also
 
 - `docs/rfcs/0001-hyphence.md` — the envelope RFC this document extends.
-- `docs/man.7/hyphence.md` — tutorial / reference manual (not yet updated for this RFC's content grammar; tracked as [linenisgreat/hyphence#4](https://code.linenisgreat.com/linenisgreat/hyphence/issues/4)).
+- `docs/man.7/hyphence.md` — tutorial / reference manual, updated for this RFC's content grammar including the 2026-07-18 trailing-comment revision ([linenisgreat/hyphence#4](https://code.linenisgreat.com/linenisgreat/hyphence/issues/4)).
 - cutting-garden `docs/rfcs/0014-trellis-query-language.md` and `docs/rfcs/0014-trellis.peg` — the normative grammar this RFC's productions are specified against.
 - [linenisgreat/hyphence#2](https://code.linenisgreat.com/linenisgreat/hyphence/issues/2) — the issue this RFC implements (six-point proposal, confirmed by Sasha in a grill session).
 - dodder FDR 0017 ("field index"), FDR 0018 ("Genre as a Type-Defined Field") — cited by the Semantic Translation section.

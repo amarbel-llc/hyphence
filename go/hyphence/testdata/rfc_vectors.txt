@@ -70,3 +70,12 @@ unified-lock-reference	LS0tCiEgbWQKLSBvbmUvdW5vIEBibGFrZTJiMjU2LWRlZgotLS0K	docu
 field-predicate-line	LS0tCiEgdGFzawotIGR1ZT0iMjAyNi0wOC0wMSIKLS0tCg==	document/parse-ok	-
 deprecated-angle-still-accepted	LS0tCiEgdGFzawo8IGJsb2Nrcz1vdGhlci90YXNrIEBibGFrZTJiMjU2LWdoaQotLS0K	document/parse-ok	-
 id-less-field-lock	LS0tCiEgb3JnYW5pemUKLSBfYmFzZT1AYmxha2UyYjI1Ni1qa2wKLS0tCg==	document/parse-ok	-
+
+# RFC 0002 revised 2026-07-18: trailing line comments (`!`/`@`/`-`/`<`
+# only, never `#` free text). This vector demonstrates the
+# quoting-composes case the revision calls out explicitly: the `%`
+# inside the quoted field value is content, not a comment boundary.
+# Plain-text view:
+#   trailing-comment-quoting-composes : "---\n! task\n- note=\"50% done\" % real comment\n---\n"
+
+trailing-comment-quoting-composes	LS0tCiEgdGFzawotIG5vdGU9IjUwJSBkb25lIiAlIHJlYWwgY29tbWVudAotLS0K	document/parse-ok	-
