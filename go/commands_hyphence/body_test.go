@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/amarbel-llc/hyphence/go/hyphence"
+	"code.linenisgreat.com/hyphence/go/hyphence"
 )
 
 func TestBody_StreamsThrough(t *testing.T) {

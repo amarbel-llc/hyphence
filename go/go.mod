@@ -1,4 +1,4 @@
-module github.com/amarbel-llc/hyphence/go
+module code.linenisgreat.com/hyphence/go
 
 go 1.26
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/amarbel-llc/hyphence/go/cli_main"
-	"github.com/amarbel-llc/hyphence/go/commands_hyphence"
+	"code.linenisgreat.com/hyphence/go/cli_main"
+	"code.linenisgreat.com/hyphence/go/commands_hyphence"
 )
 
 // version is stamped at link time via `-X main.version` (igloo's

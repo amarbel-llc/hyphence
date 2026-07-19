@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/amarbel-llc/hyphence/go/futility"
+	"code.linenisgreat.com/hyphence/go/futility"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ui"
 )
 

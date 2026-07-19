@@ -4,8 +4,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/amarbel-llc/hyphence/go/futility"
-	"github.com/amarbel-llc/hyphence/go/hyphence"
+	"code.linenisgreat.com/hyphence/go/futility"
+	"code.linenisgreat.com/hyphence/go/hyphence"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/values"

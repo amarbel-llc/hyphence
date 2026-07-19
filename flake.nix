@@ -297,7 +297,7 @@
           # trees) that let downstream repos bridge hyphence's Go module as a
           # flake input via goFlakeInputs, instead of the organic gomod2nix.toml
           # hash (flake-input-go_mod, RFC 0001 § Consumer interface). madder
-          # bridges `github.com/amarbel-llc/hyphence/go` = go-pkgs (no subPath,
+          # bridges `code.linenisgreat.com/hyphence/go` = go-pkgs (no subPath,
           # since the producer src is already scoped to go/).
           inherit go-pkgs go-pkgs-test;
         };
