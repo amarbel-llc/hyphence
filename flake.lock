@@ -206,15 +206,12 @@
       "locked": {
         "lastModified": 1783344978,
         "narHash": "sha256-6oSyTN563abHKnvaNmuhpodX6Xb0IGUfKWLWiyC5bXM=",
-        "owner": "amarbel-llc",
-        "repo": "langlang",
-        "rev": "5fbd00358572d7f0f34e20f00a05ee79e64ee04d",
-        "type": "github"
+        "type": "tarball",
+        "url": "https://code.linenisgreat.com/langlang/archive/5fbd00358572d7f0f34e20f00a05ee79e64ee04d.tar.gz"
       },
       "original": {
-        "owner": "amarbel-llc",
-        "repo": "langlang",
-        "type": "github"
+        "type": "tarball",
+        "url": "https://code.linenisgreat.com/langlang/archive/master.tar.gz"
       }
     },
     "nixpkgs-master": {

@@ -73,7 +73,7 @@
     # fetches (crane/rust-overlay have no equivalent here and stay
     # unfollowed).
     langlang = {
-      url = "github:amarbel-llc/langlang";
+      url = "https://code.linenisgreat.com/langlang/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
