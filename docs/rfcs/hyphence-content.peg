@@ -189,14 +189,16 @@ EOF          <- !.
 
 // ---- conformance vectors: see elsewhere, not duplicated here --------
 //
-// This file's job (per its own header) is structural grammar
-// validation via `just validate-grammar`, not vector conformance —
-// nothing here currently parses these productions against sample
-// strings (langlang's `-grammar-ast` pass checks the grammar is
-// well-formed, not that specific inputs match it). The actual,
-// tested conformance vectors — kept byte-identical across Go and
-// Rust by checks.vectors-equality — live at
-// go/hyphence/testdata/rfc_vectors.txt and
+// This file's own well-formedness is validated by `just
+// validate-grammar` (langlang -grammar-ast — checks the grammar
+// compiles, not that specific inputs match it). Whether real hyphence
+// content actually PARSES under these productions is separately
+// enforced by `just test-grammar-vectors` (hyphence#9,
+// go/hyphence/grammar_vectors_test.go), which feeds each RFC vector's
+// content-grammar-governed metadata lines through langlang -input.
+// The vectors themselves aren't duplicated into this file — kept
+// byte-identical across Go and Rust by checks.vectors-equality — they
+// live at go/hyphence/testdata/rfc_vectors.txt and
 // rust/hyphence/testdata/rfc_vectors.txt; the same cases are also
 // documented in prose in RFC 0002 §Test Vectors and RFC 0003 §Test
 // Vectors. A third, unchecked copy here would drift silently, so

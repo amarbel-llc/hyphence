@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 )
@@ -18,35 +17,11 @@ import (
 // vector requires only a new line in the testdata file — no test-code
 // edits.
 func TestRFCConformance_HyphenceTestVectors(t *testing.T) {
-	bites, err := os.ReadFile("testdata/rfc_vectors.txt")
-	if err != nil {
-		t.Fatalf("read testdata: %v", err)
-	}
-
-	for lineNo, raw := range strings.Split(string(bites), "\n") {
-		line := strings.TrimRight(raw, "\r")
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.Split(line, "\t")
-		if len(parts) != 4 {
-			t.Errorf("line %d: want 4 tab-separated fields, got %d", lineNo+1, len(parts))
-			continue
-		}
-
-		name, inputB64, outcome, expectedB64 := parts[0], parts[1], parts[2], parts[3]
-
-		input, err := base64.StdEncoding.DecodeString(inputB64)
-		if err != nil {
-			t.Errorf("%s: decode input b64: %v", name, err)
-			continue
-		}
-
-		t.Run(name, func(t *testing.T) {
-			runRFCVector(t, input, outcome, expectedB64)
+	forEachRFCVector(t, func(v rfcVector) {
+		t.Run(v.name, func(t *testing.T) {
+			runRFCVector(t, v.input, v.outcome, v.expectedB64)
 		})
-	}
+	})
 }
 
 func runRFCVector(t *testing.T, input []byte, outcome, expectedB64 string) {

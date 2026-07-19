@@ -18,7 +18,7 @@ build-nix-check:
     nix flake check --show-trace
 
 [group('post-build')]
-test: test-go test-rust test-bats validate-grammar lint-go lint-worktree
+test: test-go test-rust test-bats validate-grammar test-grammar-vectors lint-go lint-worktree
 
 # Run the Go test suite in the devShell. CROWN JEWEL: the RFC conformance suite
 # (go/hyphence/rfc_conformance_test.go) is behind //go:build test, so -tags test
@@ -48,6 +48,14 @@ test-bats:
 [group('post-build')]
 validate-grammar:
     nix build .#validate-grammar --show-trace
+
+# Cross-check RFC test vectors' content-grammar-governed metadata lines
+# against docs/rfcs/hyphence-content.peg via langlang -input (hyphence#9):
+# validate-grammar alone only checks the .peg is well-formed, never that
+# real hyphence content parses under it.
+[group('post-build')]
+test-grammar-vectors:
+    nix build .#grammar-vectors-test --show-trace
 
 # Vet the Go sources — the cheap static-analysis pass.
 [group('pre-build')]

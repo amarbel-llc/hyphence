@@ -173,6 +173,9 @@
           conformistRepair = conformistEval.config.build.repair;
           man7Src = ./docs/man.7;
           man1Src = ./docs/man.1;
+          # hyphence#9: langlang -input vector cross-check (grammar-vectors-test).
+          inherit langlang;
+          grammarPeg = ./docs/rfcs/hyphence-content.peg;
         };
 
         # bats-hyphence: the hermetic CLI integration lane (zz-tests_bats/
@@ -283,6 +286,12 @@
           # The langlang grammar-validation gate, built by
           # `just validate-grammar` (hyphence#7).
           inherit validate-grammar;
+
+          # grammar-vectors-test (hyphence#9) is already present in this
+          # merged attrset via `result.packages` above — go/default.nix
+          # exposes it conditionally on `langlang != null`, which is
+          # always true from this flake. Built by
+          # `just test-grammar-vectors`.
 
           # go-pkgs / go-pkgs-test: the producer outputs (filtered go/ source
           # trees) that let downstream repos bridge hyphence's Go module as a

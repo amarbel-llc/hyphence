@@ -73,11 +73,12 @@ pre-merge CI lane.
 ```sh
 just                 # build + test (the pre-merge CI gate)
 just build           # regenerate gomod2nix.toml + run the flake checks
-just test            # go + rust + bats suites, grammar validation, go vet, and the impure eng lint
+just test            # go + rust + bats suites, grammar validation (+ vectors), go vet, and the impure eng lint
 just test-go         # just the Go test suite (RFC conformance needs -tags test)
 just test-rust       # just the Rust test suite (unit + RFC conformance)
 just test-bats       # just the CLI integration suite (zz-tests_bats)
 just validate-grammar # just the langlang grammar-validation gate (docs/rfcs/hyphence-content.peg)
+just test-grammar-vectors # just the langlang -input vector cross-check (RFC vectors vs. the grammar)
 just codemod-fmt     # format the tree in place (nix fmt / conformist repair)
 ```
 

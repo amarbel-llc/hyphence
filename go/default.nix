@@ -41,6 +41,15 @@
   # by this CLI's own wiring. Defaulted null so non-flake callers skip
   # the man-page step.
   man1Src ? null,
+  # langlang's default package output (the CLI binary), passed from
+  # flake.nix. Only used by grammar-vectors-test below; defaulted null
+  # so non-flake callers skip that derivation entirely.
+  langlang ? null,
+  # docs/rfcs/hyphence-content.peg's Nix path (passed from flake.nix) —
+  # outside go/'s own src fileset, so grammar-vectors-test needs it
+  # threaded in explicitly. Defaulted null; required whenever langlang
+  # is set (see grammar-vectors-test's assertion below).
+  grammarPeg ? null,
 }:
 let
   # The fork's default.nix shim auto-applies overlays.default (the gomod2nix
@@ -88,6 +97,52 @@ let
     '';
   };
 
+  # grammar-vectors-test: hyphence#9's langlang -input cross-check. Reuses
+  # go-test's exact buildGoApplication shape but runs only TestGrammarVectors
+  # (go/hyphence/grammar_vectors_test.go), with langlang on PATH and
+  # HYPHENCE_GRAMMAR_PEG/LANGLANG_BIN set so the test's env-var-gated skip
+  # doesn't fire. Kept as a package, not a check (matches bats-hyphence/
+  # validate-grammar's existing convention — langlang is a less-vetted
+  # external input than igloo/nixpkgs-master). Only built when langlang is
+  # supplied; assert()s a clear message if grammarPeg is missing alongside it.
+  grammar-vectors-test =
+    assert (langlang == null) || (grammarPeg != null);
+    pkgs.buildGoApplication {
+      pname = "hyphence-grammar-vectors-test";
+      inherit version goFlakeInputs;
+      src = ./.;
+      pwd = ./.;
+      modules = ./gomod2nix.toml;
+      go = pkgs-master.go_1_26;
+      GOTOOLCHAIN = "local";
+      subPackages = [ "hyphence" ];
+
+      nativeBuildInputs = pkgs-master.lib.optionals (langlang != null) [
+        langlang.packages.${system}.default
+      ];
+
+      buildPhase = ''
+        runHook preBuild
+        go build ./...
+        runHook postBuild
+      '';
+
+      doCheck = true;
+      checkPhase = ''
+        runHook preCheck
+        export LANGLANG_BIN=langlang
+        export HYPHENCE_GRAMMAR_PEG=${grammarPeg}
+        go test -tags test -run TestGrammarVectors -v ./...
+        runHook postCheck
+      '';
+
+      installPhase = ''
+        runHook preInstall
+        mkdir -p "$out"
+        runHook postInstall
+      '';
+    };
+
   # The hyphence CLI binary (cmd/hyphence). igloo's buildGoApplication injects
   # the version arg as `-X main.version`, so `var version` in main.go carries the
   # version.env HYPHENCE_VERSION at link time. When man7Src/man1Src is set,
@@ -132,7 +187,12 @@ in
   packages = {
     inherit hyphence;
     default = hyphence;
-  };
+  }
+  # grammar-vectors-test is only defined meaningfully when langlang is
+  # supplied — a bare `import ./go/default.nix` (langlang defaults null)
+  # never forces it, so the unconditional `${grammarPeg}` interpolation
+  # in its checkPhase is never evaluated for non-flake callers.
+  // pkgs-master.lib.optionalAttrs (langlang != null) { inherit grammar-vectors-test; };
 
   checks = {
     inherit go-test;
