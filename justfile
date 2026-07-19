@@ -18,7 +18,7 @@ build-nix-check:
     nix flake check --show-trace
 
 [group('post-build')]
-test: test-go test-rust test-bats lint-go lint-worktree
+test: test-go test-rust test-bats validate-grammar lint-go lint-worktree
 
 # Run the Go test suite in the devShell. CROWN JEWEL: the RFC conformance suite
 # (go/hyphence/rfc_conformance_test.go) is behind //go:build test, so -tags test
@@ -39,6 +39,15 @@ test-rust:
 [group('post-build')]
 test-bats:
     nix build .#bats-hyphence --show-trace
+
+# Validate docs/rfcs/hyphence-content.peg (the formal RFC 0002/0003 companion,
+# hyphence#7) with langlang, as a nix build against the check derivation.
+# Grammar notation follows cutting-garden's "authored langlang-compatible"
+# convention (docs/features/0022-trellis.md), but this is the first Nix-level
+# langlang validation gate in either repo.
+[group('post-build')]
+validate-grammar:
+    nix build .#validate-grammar --show-trace
 
 # Vet the Go sources — the cheap static-analysis pass.
 [group('pre-build')]

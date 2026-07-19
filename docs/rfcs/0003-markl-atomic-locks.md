@@ -194,6 +194,7 @@ New vectors are **appended**, per RFC 0001 §Test Vectors' convention; per that 
 
 ## See Also
 
+- `docs/rfcs/hyphence-content.peg` — the formal, langlang-validated companion grammar extracting this RFC's (and RFC 0002's) productions ([linenisgreat/hyphence#7](https://code.linenisgreat.com/linenisgreat/hyphence/issues/7)); validate with `just validate-grammar`.
 - `docs/rfcs/0002-content-grammar.md` — the RFC this document narrowly supersedes (Lock grammar section only).
 - `docs/rfcs/0001-hyphence.md` — the envelope RFC, unaffected.
 - madder `docs/rfcs/0002-markl-id-format.md` and `markl-id(7)` §STRUCTURE / §PURPOSE IDS — the normative MarklId lexeme this RFC cites by reference.

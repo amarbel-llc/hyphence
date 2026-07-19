@@ -58,6 +58,31 @@
     };
     doppelgang.inputs.conformist.follows = "conformist";
     bats.inputs.conformist.follows = "conformist";
+
+    # langlang: the parsing-expression-grammar toolkit that validates this
+    # repo's normative grammar artifact (docs/rfcs/hyphence-content.peg,
+    # hyphence#7). cutting-garden's docs/features/0022-trellis.md
+    # establishes "authored langlang-compatible" as a notational
+    # convention for its own 0014-trellis.peg, but has no Nix-level
+    # langlang gate of its own yet — this is the first repo in the
+    # family to actually wire one up, not a case of matching an
+    # existing enforced pattern. Only packages.default (the langlang
+    # binary) is consumed; its own devShell/tap toolchain is followed
+    # against this repo's existing inputs below purely to keep
+    # flake.lock from carrying duplicate bats/purse-first/gomod2nix
+    # fetches (crane/rust-overlay have no equivalent here and stay
+    # unfollowed).
+    langlang = {
+      url = "github:amarbel-llc/langlang";
+      inputs.igloo.follows = "igloo";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+      inputs.bats.follows = "bats";
+      inputs.tap.inputs.bats.follows = "bats";
+      inputs.tap.inputs.purse-first.follows = "purse-first";
+      inputs.tap.inputs.gomod2nix.follows = "purse-first/gomod2nix";
+      inputs.tap.inputs.treefmt-nix.follows = "igloo/treefmt-nix";
+    };
   };
 
   outputs =
@@ -70,6 +95,7 @@
       purse-first,
       conformist,
       doppelgang,
+      langlang,
       ...
     }:
     let
@@ -192,6 +218,31 @@
           cargoLock.lockFile = ./Cargo.lock;
         };
 
+        # validate-grammar: the langlang parse-validation gate for
+        # docs/rfcs/hyphence-content.peg (hyphence#7), the formal companion
+        # to RFC 0002/0003. Exposed as a package (not a flake check) to
+        # match bats-hyphence's pattern — explicitly invoked by
+        # `just validate-grammar`/the test aggregate, not swept by
+        # `nix flake check`. BOTH -disable-builtins AND -disable-spaces are
+        # required for a whitespace-semantic grammar like this one — see
+        # the .peg file's own header comment for the empirical dialect-gap
+        # finding that -disable-builtins alone leaves langlang silently
+        # auto-injecting whitespace-skip calls between every sequence item.
+        validate-grammar =
+          pkgs.runCommand "hyphence-validate-grammar"
+            {
+              nativeBuildInputs = [ langlang.packages.${system}.default ];
+            }
+            ''
+              langlang \
+                -grammar ${./docs/rfcs/hyphence-content.peg} \
+                -grammar-ast \
+                -disable-builtins \
+                -disable-spaces \
+                > /dev/null
+              touch "$out"
+            '';
+
         # checks.vectors-equality: the Go and Rust impls each carry their own
         # copy of the normative RFC 0001 vectors (per-crate copies keep each
         # crate self-contained for a possible crates.io publish). This gate keeps
@@ -228,6 +279,10 @@
 
           # The CLI bats lane, built by `just test-bats`.
           inherit bats-hyphence;
+
+          # The langlang grammar-validation gate, built by
+          # `just validate-grammar` (hyphence#7).
+          inherit validate-grammar;
 
           # go-pkgs / go-pkgs-test: the producer outputs (filtered go/ source
           # trees) that let downstream repos bridge hyphence's Go module as a

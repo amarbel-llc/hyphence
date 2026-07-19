@@ -1,0 +1,203 @@
+// hyphence-content.peg — formal companion to RFC 0002 (content grammar)
+// and RFC 0003 (markl-atomic locks). Extracts the informal-notation
+// productions those RFCs define into a real, langlang-validated PEG.
+// hyphence#7.
+//
+// Notation: Ford PEG, authored langlang-compatible, matching
+// cutting-garden 0014-trellis.peg's own convention (cutting-garden
+// FDR 0022): `//` comments only, explicit spacing, no reliance on
+// automatic space insertion. Whitespace is SEMANTIC here exactly as
+// it is in trellis/hyphence content (SP is a real token, not
+// insignificant filler).
+//
+// Validate with BOTH `-disable-builtins -disable-spaces`, not
+// `-disable-builtins` alone (dialect-gap finding, hyphence#7):
+// empirically, `-disable-builtins` only stops langlang from injecting
+// the Spacing/Space/EOL/EOF *rule definitions* — it does NOT stop the
+// separate whitespace-injector pass (go/grammar_whitespace_handler.go,
+// gated by config key grammar.handle_spaces / flag -disable-spaces)
+// from auto-inserting Spacing calls between every sequence item.
+// Confirmed by inspecting `-grammar-ast` output: with only
+// -disable-builtins, `Identifier[Spacing]` nodes appear between items
+// this grammar never asked for spacing between; they vanish with
+// -disable-spaces added. Without it, "validated" silently means a
+// grammar that accepts optional whitespace almost everywhere —
+// including inside Ident/IdentRune repetitions — which is not what
+// RFC 0002/0003 specify. Both flags together produce a clean,
+// error-free AST matching this file's own productions exactly.
+//
+// ---- import-vs-vendor decision (hyphence#7) -------------------------
+//
+// RFC 0002/0003 cite several trellis productions "by reference, not
+// duplicated" (Ident, IdentRune, Reserved, String, Char, Bareword,
+// DigestTerm, FieldName, SP, SP1, and RFC 0003's MarklTerm). Two ways
+// to make that reference real for langlang:
+//
+//   (a) `@import Name from "./0014-trellis.peg"` (langlang's own
+//       mechanism; see langlang/go/tests/import/*.peg for the
+//       syntax) — requires cutting-garden's 0014-trellis.peg present
+//       at a path relative to this file at validation time, i.e. a
+//       live cross-repo Nix dependency staged into place per build.
+//   (b) Vendor the specific cited productions inline, clearly
+//       provenanced, re-synced deliberately rather than tracking
+//       trellis's live HEAD.
+//
+// Chose (b). Trellis's grammar changed materially multiple times in
+// the single day this RFC pair was drafted (an interior-`@` IdentRune
+// amendment, itself superseded by the MarklTerm production, within
+// hours) — a live import would make this file's validity hostage to
+// unrelated trellis churn, and RFC 0002/0003's own prose already
+// freezes each citation "as of" a specific date rather than tracking
+// trellis's HEAD dynamically. (a) stays available as a follow-up if
+// the ecosystem wants live cross-repo grammar composition generally;
+// this file doesn't block on that. See the vendored section below for
+// exact provenance (source file, commit, date).
+//
+// ---- RFC 0004 (bindings) — STUB, not specified here ------------------
+//
+// RFC 0003 §Reference aliasing: truth and direction documents the
+// shipped `<` binding operator (name < target[@markl-id]) as
+// direction only; grammar productions are explicitly RFC 0004's
+// scope, not RFC 0002/0003's. DashContent below does NOT admit a
+// Binding alternative yet — RFC 0004 will amend this file (a
+// `Binding` production, and DashContent gaining that alternative)
+// when it lands. Nothing here anticipates that shape; this comment is
+// the marker.
+
+// ---- entry point (validation convenience only) -----------------------
+//
+// hyphence has no single content grammar — which production applies
+// is decided by the line's PREFIX character (RFC 0001 §Metadata
+// Lines), external to this grammar. A real consumer always parses
+// against ONE named production for a known PREFIX, never against
+// HyphenceContent directly. This combined rule exists only so the
+// file has one langlang entry point to validate — it is not a claim
+// that its alternatives are interchangeable.
+//
+// EOF is anchored inside EVERY alternative, not hoisted after a
+// shared choice. PEG ordered choice never backtracks into a choice
+// once one of its alternatives has matched and control has left it —
+// so if EOF lived outside a `(TypeContent / BlobContent / DashContent)`
+// choice, a partial match (e.g. TypeContent's `Ident` branch greedily
+// consuming just `due` out of `due="2026-08-01"`, then leaving
+// `="2026-08-01"` unconsumed) would commit the choice and fail the
+// whole parse at the trailing EOF, with no retry of DashContent's
+// `FieldContent` — which is the alternative that actually matches
+// the full string. Anchoring EOF per-alternative instead makes a
+// failed alternative fail as a whole (before the choice commits),
+// so the next alternative gets a real attempt. DashContent is tried
+// first since its `FieldContent` branch is the only shape that can
+// require a `=`; TypeContent/BlobContent's bare-Ident branches would
+// otherwise short-circuit on a same-named prefix. OpaqueComment is
+// intentionally not listed: its body is byte-identical to FreeText,
+// so as a later alternative it could never be reached with a
+// different outcome — it stays defined below for the `%` PREFIX's
+// own traceability back to RFC 0001's table, just not redundantly
+// re-added here.
+HyphenceContent <- DashContent TrailingComment? EOF
+                  / TypeContent TrailingComment? EOF
+                  / BlobContent TrailingComment? EOF
+                  / FreeText EOF
+
+// ---- per-line-kind productions ---------------------------------------
+// RFC 0002 §Per-line-kind productions, as amended by RFC 0003
+// §Lock Grammar (Lock is deleted; MarklTerm added where a locked value
+// could appear, ordered first per trellis's own BasicTerm ordering).
+
+// `!` line content.
+TypeContent  <- MarklTerm / Ident
+
+// `@` line content: markl-id, or a file-path (quoted if it contains
+// spaces or reserved runes).
+BlobContent  <- String / Ident
+
+// `#` line content: free text (RFC 0001 §Metadata Lines). Not a
+// parsed grammar — RFC 0002 §Trailing comments do not apply to free
+// text explains why (scanning prose for a trailing `%` is
+// undecidable and data-eating). Included here only so CONTENT[#] has
+// a named production alongside its siblings.
+FreeText      <- (!LF .)*
+
+// `%` line content: opaque comment (RFC 0001 §Metadata Lines),
+// preserved verbatim on round-trip. Same shape as FreeText, named
+// separately for traceability back to RFC 0001's table.
+OpaqueComment <- FreeText
+
+// `-` / `<` line content. `<` is a deprecated synonym of `-` (RFC 0002
+// §`<` Deprecation) with identical content grammar — both PREFIXes
+// dispatch to DashContent.
+DashContent  <- FieldContent / RefContent
+
+RefContent   <- GroundTerm
+GroundTerm   <- MarklTerm / String / Ident
+
+// RFC 0003 §Canonical emission: spacing adds SP? around "=", matching
+// trellis's own FieldPred <- FieldName SP? FieldOp SP? (...).
+FieldContent <- FieldName SP? '=' SP? FieldRHS
+FieldRHS     <- DigestTerm
+              / FieldValue
+FieldValue   <- MarklTerm / String / Bareword
+
+// RFC 0002 §Trailing comments (added by the 2026-07-18 revision).
+TrailingComment <- SP '%' (!LF .)*
+
+// LF is RFC 0001's own line terminator (not a trellis production —
+// trellis operates on already-LF-stripped content).
+LF <- '\n'
+
+// ---- vendored from cutting-garden docs/rfcs/0014-trellis.peg --------
+// Source: cutting-garden commit d5afb1abaf93bdfab495fcd4c16c32be244b482b
+// (2026-07-18, the MarklTerm revision — see RFC 0003 §The MarklId
+// lexeme). Re-sync deliberately on a future re-read of this file's
+// header comment, not automatically. Comments trimmed to what's
+// load-bearing here; see the source file for full rationale prose.
+
+// Identifiers are opaque object references using rune-class
+// EXCLUSION. `-` and `/` are admitted inline. Sigil runes are
+// identifier-interior unless term-final (the strict sigil rule).
+Ident        <- IdentRune+
+IdentRune    <- '-' / '/' / (SigilRune &IdentRune) / (!Reserved !SP1 .)
+Reserved     <- [\[\]^=,!@<>*$~%#"'] / SigilRune
+SigilRune    <- [:+.?]
+
+// Doddish quoting rules verbatim: double or single quotes; backslash
+// escapes round-trip, unknown escapes pass the following character
+// through unchanged.
+String       <- '"' (!'"' Char)* '"'
+              / "'" (!"'" Char)* "'"
+Char         <- '\\' . / .
+Bareword     <- IdentRune+
+
+// Blob identity — content-addressed exact match. Term-initial `@`.
+DigestTerm   <- '@' Ident
+
+// A purpose-full markl id (`[purpose@]format-data`, markl-id(7) /
+// madder RFC 0002) is ONE structured two-slot term: a purpose slot
+// (bare identifier or quoted string) joined by `@` to a digest slot,
+// with the digest always structurally visible (never trapped inside
+// quoting). This production superseded trellis's earlier interior-`@`
+// IdentRune amendment; that history is RFC 0003 §The MarklId lexeme's
+// to tell, not repeated here.
+MarklTerm    <- (String / Ident) '@' Ident
+
+// Flat per-type field namespace; quoted field names are opaque.
+FieldName    <- String / Ident
+
+SP           <- SP1+
+SP1          <- [ \t\r\n]
+EOF          <- !.
+
+// ---- conformance vectors: see elsewhere, not duplicated here --------
+//
+// This file's job (per its own header) is structural grammar
+// validation via `just validate-grammar`, not vector conformance —
+// nothing here currently parses these productions against sample
+// strings (langlang's `-grammar-ast` pass checks the grammar is
+// well-formed, not that specific inputs match it). The actual,
+// tested conformance vectors — kept byte-identical across Go and
+// Rust by checks.vectors-equality — live at
+// go/hyphence/testdata/rfc_vectors.txt and
+// rust/hyphence/testdata/rfc_vectors.txt; the same cases are also
+// documented in prose in RFC 0002 §Test Vectors and RFC 0003 §Test
+// Vectors. A third, unchecked copy here would drift silently, so
+// this file doesn't keep one.

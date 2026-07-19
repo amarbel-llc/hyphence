@@ -32,7 +32,8 @@ language-named top-level directory:
 ```
 go/      Go implementation: the hyphence library (package hyphence) + the hyphence CLI (cmd/hyphence)
 rust/    Rust implementation (crate hyphence, RFC 0001 envelope; zero deps, edition 2024)
-docs/    RFC 0001, RFC 0002 + the man.1 (CLI) and man.7 (format) manuals
+docs/    RFC 0001-0003, hyphence-content.peg (langlang-validated grammar
+         companion) + the man.1 (CLI) and man.7 (format) manuals
 ```
 
 The Go library is dewey-only (no madder-internal imports), so it builds
@@ -72,10 +73,11 @@ pre-merge CI lane.
 ```sh
 just                 # build + test (the pre-merge CI gate)
 just build           # regenerate gomod2nix.toml + run the flake checks
-just test            # go + rust + bats suites, go vet, and the impure eng lint
+just test            # go + rust + bats suites, grammar validation, go vet, and the impure eng lint
 just test-go         # just the Go test suite (RFC conformance needs -tags test)
 just test-rust       # just the Rust test suite (unit + RFC conformance)
 just test-bats       # just the CLI integration suite (zz-tests_bats)
+just validate-grammar # just the langlang grammar-validation gate (docs/rfcs/hyphence-content.peg)
 just codemod-fmt     # format the tree in place (nix fmt / conformist repair)
 ```
 

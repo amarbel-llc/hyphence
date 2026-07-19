@@ -87,7 +87,7 @@ Lock            = SP DigestTerm
 TrailingComment = SP "%" (!LF .)*
 ```
 
-> **Superseded 2026-07-18.** `Lock` and every `Lock?` suffix above (`TypeContent`, `RefContent`, `FieldRHS`'s second alternative) are replaced by RFC 0003 (`docs/rfcs/0003-markl-atomic-locks.md`): `TypeContent = Ident`, `RefContent = GroundTerm`, `FieldRHS = DigestTerm / FieldValue` — a locked value is an ordinary `Ident`/`FieldValue` containing a purpose-full markl id, not a distinct suffixed shape. See RFC 0003 for the current productions; kept here verbatim for history.
+> **Superseded 2026-07-18.** `Lock` and every `Lock?` suffix above (`TypeContent`, `RefContent`, `FieldRHS`'s second alternative) are replaced by RFC 0003 (`docs/rfcs/0003-markl-atomic-locks.md`): `TypeContent = MarklTerm / Ident`, `RefContent = GroundTerm` (`GroundTerm = MarklTerm / String / Ident`), `FieldRHS = DigestTerm / FieldValue` (`FieldValue = MarklTerm / String / Bareword`) — a locked value is admitted through a dedicated `MarklTerm` alternative, not folded silently into `Ident`/`FieldValue`. See RFC 0003 for the current productions; kept here verbatim for history.
 
 `DashContent` is ordered `FieldContent / RefContent`: a line whose content contains an unescaped `=` between a `FieldName` and a value is a field line; otherwise it is a reference/tag line. This is the same "syntactically distinct... under the trellis grammar" test point 4 of the originating issue describes — `FieldPred` is tried before the bare-identifier alternatives in trellis's own `BasicTerm`, and hyphence inherits that ordering.
 
@@ -275,6 +275,7 @@ On the Rust side, `rust/hyphence/src/conformance.rs`'s single `rfc_test_vectors`
 
 ## See Also
 
+- `docs/rfcs/hyphence-content.peg` — the formal, langlang-validated companion grammar extracting this RFC's (and RFC 0003's) productions ([linenisgreat/hyphence#7](https://code.linenisgreat.com/linenisgreat/hyphence/issues/7)); validate with `just validate-grammar`.
 - `docs/rfcs/0003-markl-atomic-locks.md` — **supersedes this RFC's §Lock grammar** (2026-07-18); read that RFC for the current lock spelling before implementing against this one.
 - `docs/rfcs/0001-hyphence.md` — the envelope RFC this document extends.
 - `docs/man.7/hyphence.md` — tutorial / reference manual, updated for this RFC's content grammar including the 2026-07-18 trailing-comment revision ([linenisgreat/hyphence#4](https://code.linenisgreat.com/linenisgreat/hyphence/issues/4)).
