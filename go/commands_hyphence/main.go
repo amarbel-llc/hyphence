@@ -2,7 +2,7 @@ package commands_hyphence
 
 import (
 	"code.linenisgreat.com/hyphence/go/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/flags"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/flags"
 )
 
 var utility = futility.NewUtility(

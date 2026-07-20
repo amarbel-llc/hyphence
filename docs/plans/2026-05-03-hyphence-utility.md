@@ -238,7 +238,7 @@ package hyphence
 import (
 	"io"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
 )
 
 // MetadataStreamer is the metadata consumer for `hyphence meta`. It
@@ -1124,7 +1124,7 @@ package commands_hyphence
 
 import (
 	"github.com/amarbel-llc/madder/go/internal/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/charlie/flags"
+	"code.linenisgreat.com/purse-first/libs/dewey/charlie/flags"
 )
 
 var utility = futility.NewUtility(
@@ -1750,9 +1750,9 @@ import (
 
 	"github.com/amarbel-llc/madder/go/internal/charlie/hyphence"
 	"github.com/amarbel-llc/madder/go/internal/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/0/interfaces"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/charlie/values"
+	"code.linenisgreat.com/purse-first/libs/dewey/0/interfaces"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/charlie/values"
 )
 
 func init() {
@@ -1950,9 +1950,9 @@ import (
 
 	"github.com/amarbel-llc/madder/go/internal/charlie/hyphence"
 	"github.com/amarbel-llc/madder/go/internal/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/0/interfaces"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/charlie/values"
+	"code.linenisgreat.com/purse-first/libs/dewey/0/interfaces"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/charlie/values"
 )
 
 func init() {
@@ -2135,9 +2135,9 @@ import (
 
 	"github.com/amarbel-llc/madder/go/internal/charlie/hyphence"
 	"github.com/amarbel-llc/madder/go/internal/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/0/interfaces"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/charlie/values"
+	"code.linenisgreat.com/purse-first/libs/dewey/0/interfaces"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/charlie/values"
 )
 
 func init() {
@@ -2442,9 +2442,9 @@ import (
 
 	"github.com/amarbel-llc/madder/go/internal/charlie/hyphence"
 	"github.com/amarbel-llc/madder/go/internal/futility"
-	"github.com/amarbel-llc/purse-first/libs/dewey/0/interfaces"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/charlie/values"
+	"code.linenisgreat.com/purse-first/libs/dewey/0/interfaces"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/charlie/values"
 )
 
 func init() {

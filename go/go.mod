@@ -3,7 +3,7 @@ module code.linenisgreat.com/hyphence/go
 go 1.26
 
 require (
-	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2
+	code.linenisgreat.com/purse-first/libs/dewey v0.5.0
 	mvdan.cc/sh/v3 v3.13.1
 )
 

@@ -29,7 +29,7 @@
     };
 
     # purse-first: dewey's home. Sourced via go/gomod.nix's goFlakeInputs to
-    # bridge github.com/amarbel-llc/purse-first/libs/dewey, so a dewey bump is
+    # bridge code.linenisgreat.com/purse-first/libs/dewey, so a dewey bump is
     # a flake.lock-only edit (RFC 0001 § Consumer interface).
     purse-first = {
       url = "https://code.linenisgreat.com/purse-first/archive/master.tar.gz";

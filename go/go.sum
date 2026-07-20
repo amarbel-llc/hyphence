@@ -1,5 +1,5 @@
-github.com/amarbel-llc/purse-first/libs/dewey v0.3.2 h1:DfqmtVDsyt0Is0IWoNS6o4xoYCD/RLavV+jyKSl19Hs=
-github.com/amarbel-llc/purse-first/libs/dewey v0.3.2/go.mod h1:js1n+xvK+A/cNwc/RXiqg7ic/XyjbtYdL7YofO6IJRI=
+code.linenisgreat.com/purse-first/libs/dewey v0.5.0 h1:+sd1CsNmJqPOv0K8D/qHdN62vLngYMUohHE0h52uJZU=
+code.linenisgreat.com/purse-first/libs/dewey v0.5.0/go.mod h1:IGnHB011B9XE3LU4EvZHHyL8fA3qAeQBi1QMmDXKnYQ=
 github.com/go-quicktest/qt v1.101.0 h1:O1K29Txy5P2OK0dGo59b7b0LR6wKfIhttaAhHUyn7eI=
 github.com/go-quicktest/qt v1.101.0/go.mod h1:14Bz/f7NwaXPtdYEgzsx46kqSxVwTbzVZsDC26tQJow=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=

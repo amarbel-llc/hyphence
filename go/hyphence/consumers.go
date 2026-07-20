@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // MetadataStreamer is the metadata consumer for `hyphence meta`. It

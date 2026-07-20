@@ -1,6 +1,6 @@
 package hyphence
 
-import "github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+import "code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 
 type (
 	pkgErrDisamb struct{}

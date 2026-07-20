@@ -3,8 +3,8 @@ package hyphence
 import (
 	"bufio"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/interfaces"
 )
 
 type EncoderTypeMapWithoutType[T any, PT typePtr[T], D any, PD digestPtr[D], BLOB any] map[string]interfaces.EncoderToBufferedWriter[BLOB]
