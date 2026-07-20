@@ -6,25 +6,44 @@
 // Notation: Ford PEG, authored langlang-compatible, matching
 // cutting-garden 0014-trellis.peg's own convention (cutting-garden
 // FDR 0022): `//` comments only, explicit spacing, no reliance on
-// automatic space insertion. Whitespace is SEMANTIC here exactly as
-// it is in trellis/hyphence content (SP is a real token, not
-// insignificant filler).
+// automatic space insertion.
+//
+// Whitespace in the LANGUAGE (revised 2026-07-20 — see "trailing
+// comments: glued, not required-spaced" below): permitted wherever it
+// appears but REQUIRED nowhere, and never meaning-bearing. Both
+// productions that admit it — `SP?` before `TrailingComment`'s `%`,
+// `SP?` around `FieldContent`'s `=` — are optional; nothing in this
+// grammar is currently defined as SP-required. "Semantically
+// insensitive" does not mean "mechanically absent," though: the `SP?`
+// productions still have to exist, and still have to actually consume
+// whitespace where it's present, or a genuinely spaced input would be
+// left unconsumed at the following EOF. Do not confuse this with the
+// TOOLING concern below (`-disable-spaces`) — that's about stopping
+// langlang from injecting whitespace-skipping this grammar never
+// asked for; this paragraph is about what the LANGUAGE itself permits.
+// The two are independent: a language can be whitespace-insensitive
+// (as this one now is) while still needing a langlang flag to stop an
+// unrelated tool feature from auto-injecting MORE whitespace handling
+// than even that permits (see below).
 //
 // Validate with BOTH `-disable-builtins -disable-spaces`, not
-// `-disable-builtins` alone (dialect-gap finding, hyphence#7):
-// empirically, `-disable-builtins` only stops langlang from injecting
-// the Spacing/Space/EOL/EOF *rule definitions* — it does NOT stop the
-// separate whitespace-injector pass (go/grammar_whitespace_handler.go,
-// gated by config key grammar.handle_spaces / flag -disable-spaces)
-// from auto-inserting Spacing calls between every sequence item.
-// Confirmed by inspecting `-grammar-ast` output: with only
-// -disable-builtins, `Identifier[Spacing]` nodes appear between items
-// this grammar never asked for spacing between; they vanish with
-// -disable-spaces added. Without it, "validated" silently means a
-// grammar that accepts optional whitespace almost everywhere —
-// including inside Ident/IdentRune repetitions — which is not what
-// RFC 0002/0003 specify. Both flags together produce a clean,
-// error-free AST matching this file's own productions exactly.
+// `-disable-builtins` alone (dialect-gap finding, hyphence#7) — a TOOL
+// artifact, unrelated to whether the language itself is
+// whitespace-sensitive (see above): empirically, `-disable-builtins`
+// only stops langlang from injecting the Spacing/Space/EOL/EOF *rule
+// definitions* — it does NOT stop the separate whitespace-injector
+// pass (go/grammar_whitespace_handler.go, gated by config key
+// grammar.handle_spaces / flag -disable-spaces) from auto-inserting
+// Spacing calls between every sequence item. Confirmed by inspecting
+// `-grammar-ast` output: with only -disable-builtins,
+// `Identifier[Spacing]` nodes appear between items this grammar never
+// asked for spacing between; they vanish with -disable-spaces added.
+// Without it, "validated" silently means a grammar that accepts
+// optional whitespace almost everywhere — including inside
+// Ident/IdentRune repetitions — which is not what RFC 0002/0003
+// specify, regardless of the language's own SP?-only whitespace
+// stance above. Both flags together produce a clean, error-free AST
+// matching this file's own productions exactly.
 //
 // ---- import-vs-vendor decision (hyphence#7) -------------------------
 //
@@ -64,6 +83,57 @@
 // when it lands. Nothing here anticipates that shape; this comment is
 // the marker.
 
+// ---- trailing comments: glued, not required-spaced (ruling 2026-07-20) --
+//
+// TrailingComment (below) was originally `SP '%' (!LF .)*` — a space
+// before `%` was REQUIRED. Sasha ruled the space was never
+// load-bearing and should be dropped: `%` is already in `Reserved`
+// (see the vendored section below), so it can never appear unquoted
+// inside an `Ident`/`Bareword`/`FieldName`, and `String` consumes its
+// own `%` (`"50% off"` parses whole) — `%` is therefore self-delimiting
+// against every content production here, the standard PEG technique
+// for line comments (make the introducer a character excluded from
+// every token charset). All the required SP bought was a
+// malformed-input POLICY: `foo%bar` failed loudly instead of parsing
+// as content `foo` + comment `bar`.
+//
+// Cross-language check on whether comment introducers conventionally
+// glue directly onto preceding content (no required separator):
+//
+//   Go     glued — `x := 1//comment`; spec: "line comments start with
+//          the character sequence `//`," no boundary condition.
+//   Rust   glued — "line comments begin with exactly two slashes."
+//   C99+   glued — so much so it caused a real C89→C99 incompatibility:
+//          `a = b//*divisor*/c;` meant `b/c` under C89 (block comment);
+//          became `b` + a line comment under C99. Only possible
+//          because `//` glues.
+//   JS     glued — `var a = 1//comment`.
+//   bash   NOT glued — `echo a#b` prints `a#b`; `#` starts a comment
+//          only when it begins a word, because `#` is legal INSIDE
+//          words in bash (`#fff`, `url#fragment`) — unquoted text is
+//          data by default there. hyphence made the opposite choice
+//          (`%` is Reserved, never legal inside a token), so it's
+//          structurally in the Go/Rust/C/JS camp, not bash's — it was
+//          paying bash's cost without bash's problem.
+//
+// The PEG-mechanics correction, the sharpest point in this research:
+// Go/Rust/C/JS glue because their TOKENIZERS SKIP INTER-TOKEN
+// WHITESPACE INDEPENDENTLY of whatever introduces a comment. So "glued
+// works" in those languages says nothing about whether a preceding
+// space also works — in each of them, BOTH work, for unrelated
+// reasons (the tokenizer's own whitespace-skipping, plus the
+// introducer's self-delimiting property). A PEG has no such implicit
+// skipping: every byte must be consumed by SOME production. The PEG
+// equivalent of "the introducer self-delimits" is therefore `SP? '%'`,
+// NOT `'%'` alone — deleting SP entirely doesn't permit glue, it
+// FORBIDS the space. (Verified empirically against langlang: deleting
+// SP outright makes the already-normative spaced vector
+// `trailing-comment-quoting-composes` — `note="50% done" % real
+// comment` — parse only via the `FreeText` catch-all, not via any real
+// content production; `SP?` parses both the glued and spaced forms via
+// their real productions.) This is why TrailingComment below reads
+// `SP? '%' ...`, not `'%' ...`.
+//
 // ---- entry point (validation convenience only) -----------------------
 //
 // hyphence has no single content grammar — which production applies
@@ -138,8 +208,10 @@ FieldRHS     <- DigestTerm
               / FieldValue
 FieldValue   <- MarklTerm / String / Bareword
 
-// RFC 0002 §Trailing comments (added by the 2026-07-18 revision).
-TrailingComment <- SP '%' (!LF .)*
+// RFC 0002 §Trailing comments (added by the 2026-07-18 revision;
+// SP made optional 2026-07-20 — see "trailing comments: glued, not
+// required-spaced" above).
+TrailingComment <- SP? '%' (!LF .)*
 
 // LF is RFC 0001's own line terminator (not a trellis production —
 // trellis operates on already-LF-stripped content).

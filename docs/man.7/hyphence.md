@@ -149,8 +149,10 @@ query language.
 
 Metadata lines on the structured line kinds --- **!**, **@**, **-**, and the
 deprecated **<** --- may carry a trailing comment: an inert annotation after
-the line's complete content, introduced by a space and **%**:
+the line's complete content, introduced by **%**. A space before **%** is
+permitted but not required --- glued and spaced forms parse identically:
 
+    ! md%draft type, not yet stable
     ! md % draft type, not yet stable
     - blocks=other/task @blake2b256-... % pinned at standup
 

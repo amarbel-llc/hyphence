@@ -4,7 +4,10 @@ date: 2026-07-18
 authors: Sasha F (with Clown)
 revised: 2026-07-18 (add trailing line comments on structured metadata
   lines — `!`/`@`/`-`/`<` only, never `#` free text; motivated by inline
-  annotation of dodder repo/workspace/type configs)
+  annotation of dodder repo/workspace/type configs); 2026-07-20 (the
+  required space before a trailing comment's `%` is dropped — SP is now
+  optional, not required; glued comments like `md%draft, not stable`
+  parse the same as spaced ones)
 superseded-in-part: 2026-07-18, §Lock grammar only, by RFC 0003
   (docs/rfcs/0003-markl-atomic-locks.md) — the `Lock = SP DigestTerm`
   production and every place it is used are replaced by atomic
@@ -84,7 +87,7 @@ FieldRHS        = DigestTerm                     ; id-less: purely content-addre
                 / FieldValue (SP DigestTerm)?    ; normal: value, optionally locked
 FieldValue      = String / Bareword
 Lock            = SP DigestTerm
-TrailingComment = SP "%" (!LF .)*
+TrailingComment = SP? "%" (!LF .)*         ; SP made optional in the 2026-07-20 revision, see "Trailing comments"
 ```
 
 > **Superseded 2026-07-18.** `Lock` and every `Lock?` suffix above (`TypeContent`, `RefContent`, `FieldRHS`'s second alternative) are replaced by RFC 0003 (`docs/rfcs/0003-markl-atomic-locks.md`): `TypeContent = MarklTerm / Ident`, `RefContent = GroundTerm` (`GroundTerm = MarklTerm / String / Ident`), `FieldRHS = DigestTerm / FieldValue` (`FieldValue = MarklTerm / String / Bareword`) — a locked value is admitted through a dedicated `MarklTerm` alternative, not folded silently into `Ident`/`FieldValue`. See RFC 0003 for the current productions; kept here verbatim for history.
@@ -146,10 +149,12 @@ RFC 0001's informal rule — "bare values are tags; values containing `/` are ob
 Metadata lines on the structured line kinds — `!`, `@`, `-`, and the deprecated `<` — MAY carry a trailing comment: an inert annotation appended after the line's complete content.
 
 ```
-TrailingComment = SP "%" (!LF .)*
+TrailingComment = SP? "%" (!LF .)*
 ```
 
-Concretely: `! md % draft type, not yet stable`, `- blocks=other/task @blake2b256-… % pinned at standup`. `%` is unambiguous as the comment marker here — it is a `Reserved` rune (see "Lexical foundation") with no role inside metadata content, so it cannot appear unquoted inside an `Ident`, `Bareword`, or `FieldName`. Recognition is grammar-level, not a naive scan for `%`: the trailing-comment check runs only after the line's `TypeContent`/`BlobContent`/`DashContent` has already been parsed, so a `%` inside a quoted value is content, not a comment boundary — `- note="50% done" % real comment` parses as `FieldContent = note="50% done"` followed by `TrailingComment = % real comment`.
+> **Revised 2026-07-20: SP is optional, not required.** The space before `%` was never load-bearing — `%` is a `Reserved` rune (see "Lexical foundation" below), so it can never appear unquoted inside an `Ident`/`Bareword`/`FieldName`, and `String` consumes its own `%` whole (`"50% off"` parses as one token). `%` is therefore self-delimiting against every content production here regardless of whether whitespace precedes it — the standard technique for a line-comment introducer (exclude it from every token charset). Requiring `SP` bought only a malformed-input policy (`foo%bar` failed loudly rather than parsing as content `foo` + comment `bar`), not disambiguation. Both spellings are now valid: `! md%draft type, not yet stable` (glued) and `! md % draft type, not yet stable` (spaced) parse identically, differing only in the number of bytes `TrailingComment`'s leading `SP?` consumes. See `docs/rfcs/hyphence-content.peg`'s "trailing comments: glued, not required-spaced" addendum for the cross-language survey behind this ruling and why deleting `SP` outright (rather than making it optional) would have been wrong — it would have forbidden the spaced form, not just permitted the glued one.
+
+Concretely: `! md%draft type, not yet stable`, `! md % draft type, not yet stable`, `- blocks=other/task @blake2b256-… % pinned at standup`. Recognition is grammar-level, not a naive scan for `%`: the trailing-comment check runs only after the line's `TypeContent`/`BlobContent`/`DashContent` has already been parsed, so a `%` inside a quoted value is content, not a comment boundary — `- note="50% done" % real comment` parses as `FieldContent = note="50% done"` followed by `TrailingComment = % real comment` (the space here belongs to `TrailingComment`'s optional `SP?`, not to the field value).
 
 **Semantics.** A trailing comment is inert annotation entangled with its **own** line — contrast RFC 0001's `%`-PREFIX comment lines, which entangle with the metadata line that *follows* them (RFC 0001 §Metadata Lines: "Each comment is entangled with the non-comment line that follows it"). Content-preserving encoders (per RFC 0001 §Encoder Behavior's round-trip requirement) MUST preserve a trailing comment on re-emission. A trailing comment carries no resolution-time meaning — it does not appear as a row in the Semantic Translation table below. It is also distinct from **document-tail** `%`-PREFIX comment lines — comment lines with no following non-comment line, trailing the whole metadata section rather than annotating one line within it — which the Go reference implementation currently exposes as `Document.TrailingComments []string` (`go/hyphence/document.go`); implementation work for this RFC's inline form will need its own per-line representation to avoid that naming collision, tracked as [linenisgreat/hyphence#5](https://code.linenisgreat.com/linenisgreat/hyphence/issues/5).
 
@@ -268,6 +273,12 @@ Six vectors are appended, exercising the two envelope-level outcomes capable of 
 | `deprecated-angle-still-accepted` | `document/parse-ok` | `< blocks=other/task @blake2b256-ghi` — deprecated `<` PREFIX still envelope-decodes, carrying a **RFC-0002-spelled** locked field/typed-edge line. **Superseded**, same as above — see RFC 0003's `atomic-lock-typed-edge`. The `<` PREFIX deprecation itself is unaffected. |
 | `id-less-field-lock` | `document/parse-ok` | `- _base=@blake2b256-jkl` — the id-less typed-edge form |
 | `trailing-comment-quoting-composes` | `document/parse-ok` | `- note="50% done" % real comment` — a trailing comment coexisting with a `%` inside a quoted field value, the case "Trailing comments" calls out explicitly |
+
+A seventh vector, `trailing-comment-glued`, is appended by the 2026-07-20 revision (SP made optional before `TrailingComment`'s `%`):
+
+| Name | Outcome | Demonstrates |
+|---|---|---|
+| `trailing-comment-glued` | `legacy/parse-ok` | `! md%glued comment` — a trailing comment with NO space before `%`, the glued spelling the 2026-07-20 revision admits alongside the pre-existing spaced form |
 
 `legacy/parse-ok`'s decoder (`TypedMetadataCoderDefault`, `go/hyphence/coder_metadata.go`) only wires the `!` and `@` prefixes, so it can't exercise the `-`/`<` forms — those needed the six-prefix decoder instead. `document/*` (the `Reader` + `MetadataValidator` harness in `go/hyphence/document_test.go`) already accepts all six prefixes but had no `parse-ok` outcome; a `document/parse-ok` case (decode via `Reader`+`MetadataValidator`, assert success) was added alongside these vectors.
 

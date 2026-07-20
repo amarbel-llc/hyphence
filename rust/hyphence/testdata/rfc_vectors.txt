@@ -80,6 +80,15 @@ id-less-field-lock	LS0tCiEgb3JnYW5pemUKLSBfYmFzZT1AYmxha2UyYjI1Ni1qa2wKLS0tCg==	
 
 trailing-comment-quoting-composes	LS0tCiEgdGFzawotIG5vdGU9IjUwJSBkb25lIiAlIHJlYWwgY29tbWVudAotLS0K	document/parse-ok	-
 
+# RFC 0002 revised 2026-07-20: the required space before a trailing
+# comment's `%` is dropped (SP made optional, not required) — `%` is
+# already self-delimiting (Reserved rune, excluded from every token
+# charset), so a glued comment parses identically to a spaced one.
+# Plain-text view:
+#   trailing-comment-glued : "---\n! md%glued comment\n---\n"
+
+trailing-comment-glued	LS0tCiEgbWQlZ2x1ZWQgY29tbWVudAotLS0K	legacy/parse-ok	-
+
 # RFC 0003 (supersedes RFC 0002 §Lock grammar, 2026-07-18): a locked
 # value is one atomic purpose-full markl id (no space before `@`),
 # not a `SP @digest` suffix. unified-lock-type/unified-lock-reference/
