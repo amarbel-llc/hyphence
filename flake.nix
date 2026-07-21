@@ -87,6 +87,7 @@
     langlang.inputs.conformist.inputs.igloo.inputs.flake-parts.follows = "igloo/flake-parts";
     langlang.inputs.conformist.inputs.igloo.inputs.systems.follows = "igloo/systems";
     langlang.inputs.conformist.inputs.igloo.inputs.treefmt-nix.follows = "igloo/treefmt-nix";
+    langlang.inputs.conformist.follows = "conformist";
   };
 
   outputs =
