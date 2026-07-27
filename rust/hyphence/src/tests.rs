@@ -3,6 +3,35 @@
 
 use crate::Document;
 
+/// hyphence#11: the `@`-line-plus-body rule is a CROSS-LINE check the decoder
+/// leaves to the caller, so a document carrying both DECODES successfully and the
+/// caller detects it via `has_inline_body_with_blob_ref`.
+///
+/// This is what the shared corpus's `document/parse-error-inline-body-with-at`
+/// outcome actually specifies ("Reader must succeed; the post-ReadFrom validator
+/// state must show..."), and what Go does. `decode` returning `Err` here — the
+/// prior behavior — diverged from both.
+#[test]
+fn inline_body_with_blob_ref_decodes_and_is_detectable() {
+    let doc = Document::decode(b"---\n@ blake2b256-abc\n! md\n---\n\ninline\n")
+        .expect("decode must succeed: the rule is caller-enforced, not decoder-enforced");
+
+    assert!(doc.has_inline_body_with_blob_ref());
+    assert_eq!(doc.body.as_deref(), Some(&b"inline\n"[..]));
+    // The lines stay reachable, which is what lets the content-grammar
+    // cross-check cover this vector at all.
+    assert_eq!(doc.blob_ref(), Some("blake2b256-abc"));
+    assert_eq!(doc.type_line(), Some("md"));
+
+    // An `@` line with no body is not a violation.
+    let no_body = Document::decode(b"---\n@ blake2b256-abc\n! md\n---\n").unwrap();
+    assert!(!no_body.has_inline_body_with_blob_ref());
+
+    // A body with no `@` line is not a violation.
+    let no_blob_ref = Document::decode(b"---\n! md\n---\n\ninline\n").unwrap();
+    assert!(!no_blob_ref.has_inline_body_with_blob_ref());
+}
+
 #[test]
 fn type_only_round_trips_byte_exact() {
     let bytes = b"---\n! md\n---\n";

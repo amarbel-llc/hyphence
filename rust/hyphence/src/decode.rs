@@ -17,8 +17,23 @@ impl Document {
     ///   [`Error::MalformedLine`]),
     /// - a body is present only when a single blank separator line follows the
     ///   closing boundary; any other non-EOF byte there is [`Error::MissingSeparator`],
-    /// - an `@` blob line together with a body is [`Error::InlineBodyWithAtReference`],
     /// - EOF inside the metadata section is [`Error::UnterminatedMetadata`].
+    ///
+    /// One RFC 0001 rule is deliberately NOT enforced here: a document carrying
+    /// both an `@` blob-reference line and a body section. That is a CROSS-LINE
+    /// rule, not a line- or boundary-level one, and the shared vector corpus
+    /// specifies it as such — its `document/parse-error-inline-body-with-at`
+    /// outcome reads "Reader must succeed; the post-ReadFrom validator state
+    /// must show an @-line was seen AND a body section followed." Decoding
+    /// therefore succeeds and the caller checks
+    /// [`Document::has_inline_body_with_blob_ref`], which is also what the Go
+    /// implementation does (its `Reader` succeeds; `hyphence validate`
+    /// cross-checks `SawAtLine` against `SawBody`).
+    ///
+    /// This moved out of `decode` in hyphence#11: enforcing it here made Rust
+    /// diverge from both the corpus prose and Go, and it left the affected
+    /// vector's metadata lines unreachable — so the content-grammar
+    /// cross-check could not cover them on this side.
     pub fn decode(input: &[u8]) -> Result<Document, Error> {
         // No opening boundary: the entire input is an unstructured body.
         if !boundary_at(input, 0) {
@@ -55,10 +70,6 @@ impl Document {
             Some(b'\n') => Some(input[cursor + 1..].to_vec()),
             Some(_) => return Err(Error::MissingSeparator),
         };
-
-        if body.is_some() && metadata.iter().any(|l| l.prefix == Prefix::Blob) {
-            return Err(Error::InlineBodyWithAtReference);
-        }
 
         Ok(Document {
             metadata,

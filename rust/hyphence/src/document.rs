@@ -111,6 +111,21 @@ impl Document {
         self.line_value(Prefix::Blob)
     }
 
+    /// Whether this document carries BOTH an `@` blob-reference line and a body
+    /// section — the RFC 0001 §Metadata Lines violation decoders SHOULD reject.
+    ///
+    /// This is a CROSS-LINE rule, so [`Document::decode`] deliberately does not
+    /// enforce it: decoding succeeds and the caller decides, which is what the
+    /// shared vector corpus specifies ("Reader must succeed; the post-ReadFrom
+    /// validator state must show an @-line was seen AND a body section
+    /// followed") and what the Go implementation does. A caller wanting the
+    /// documented error returns [`crate::Error::InlineBodyWithAtReference`] from
+    /// a true result — the equivalent of Go's `hyphence validate` cross-checking
+    /// `SawAtLine` against `SawBody`.
+    pub fn has_inline_body_with_blob_ref(&self) -> bool {
+        self.body.is_some() && self.metadata.iter().any(|l| l.prefix == Prefix::Blob)
+    }
+
     /// All `#` description values, in document order.
     pub fn descriptions(&self) -> impl Iterator<Item = &str> {
         self.metadata

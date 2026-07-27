@@ -106,6 +106,20 @@
     # oracle-javacard-sdks source inputs have no counterpart here and stay
     # unfollowed — they are locked but never evaluated by this flake, which
     # only ever forces `piggy.packages.${system}.marklid-grammar`.
+    #
+    # Those three are the measured cost of reaching the grammar: 3 of this
+    # lock's 21 nodes exist solely because of piggy, and they are
+    # JavaCard/PIV smartcard-simulation sources with nothing to do with a
+    # .peg. Nix locks every input of a flake you depend on regardless of
+    # which outputs you evaluate, so no amount of `follows` removes them —
+    # an input with no counterpart here cannot be followed away. Tracked
+    # upstream as linenisgreat/piggy#238 (publish the grammar from a
+    # minimal input-free flake); cutting-garden and papi pay the same cost
+    # for the same reason, so the fix belongs there rather than in a
+    # hyphence-local workaround. Do NOT "fix" this by switching to
+    # `flake = false` and reading piggy's internal marklid.peg path: that
+    # bypasses the export surface piggy publishes on purpose and turns a
+    # file path into an implicit contract.
     piggy = {
       url = "https://code.linenisgreat.com/piggy/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";

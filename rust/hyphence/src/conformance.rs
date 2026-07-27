@@ -97,8 +97,21 @@ fn rfc_test_vectors() {
             "document/parse-error-malformed-line" => {
                 assert_eq!(result, Err(Error::MalformedLine), "{name}");
             }
+            // Per this outcome's own definition in the vector file, decoding
+            // MUST SUCCEED and the cross-line state must then show the
+            // violation. Before hyphence#11 this arm asserted decode returned
+            // Err, which contradicted the corpus prose and diverged from Go
+            // (whose Reader succeeds and whose validate subcommand does the
+            // cross-check). The rule moved out of Document::decode; the
+            // assertion follows it.
             "document/parse-error-inline-body-with-at" => {
-                assert_eq!(result, Err(Error::InlineBodyWithAtReference), "{name}");
+                let doc = result.unwrap_or_else(|e| {
+                    panic!("{name}: decode must succeed for this outcome, got {e:?}")
+                });
+                assert!(
+                    doc.has_inline_body_with_blob_ref(),
+                    "{name}: expected the @-line-plus-body violation to be detectable"
+                );
             }
             // Outcomes are namespaced by owning harness so several
             // harnesses can share this one canonical vector file, and the
@@ -169,14 +182,19 @@ fn content_grammar_vectors() {
             continue;
         }
 
-        // Only outcomes whose document is known to DECODE can be content-checked,
-        // since the metadata lines have to be in hand first.
-        // `document/parse-error-inline-body-with-at` is excluded for that reason:
-        // Document::decode returns Err for it, so there are no lines to inspect.
-        // (The Go harness reaches those lines because its Reader/MetadataBuilder
-        // pipeline surfaces them before the cross-check fires.)
+        // Only outcomes whose document DECODES can be content-checked, since the
+        // metadata lines have to be in hand first.
+        //
+        // `document/parse-error-inline-body-with-at` qualifies as of hyphence#11:
+        // its violation is a cross-line rule the decoder no longer enforces, so
+        // decoding succeeds and its lines are reachable. That closes the gap
+        // where this harness checked one fewer vector than the Go one for a
+        // reason that was really a Rust/Go divergence rather than a property of
+        // the vector.
         let expect_reject = match outcome {
-            "legacy/parse-ok" | "document/parse-ok" => false,
+            "legacy/parse-ok"
+            | "document/parse-ok"
+            | "document/parse-error-inline-body-with-at" => false,
             "grammar/reject" => true,
             _ => continue,
         };

@@ -19,6 +19,13 @@ pub enum Error {
     MalformedLine,
     /// The document carried both an `@` blob-reference line and a body section,
     /// which RFC 0001 §Metadata Lines says decoders SHOULD reject.
+    ///
+    /// NOT returned by [`crate::Document::decode`]: this is a cross-line rule
+    /// the decoder leaves to the caller, who tests
+    /// [`crate::Document::has_inline_body_with_blob_ref`] and returns this
+    /// variant. The variant stays here as the canonical error for the condition,
+    /// so every caller surfaces it the same way. See `decode`'s own
+    /// documentation for why the check lives there rather than in the decoder.
     InlineBodyWithAtReference,
     /// End of input was reached inside the metadata section: an opening boundary
     /// with no matching closing boundary.
