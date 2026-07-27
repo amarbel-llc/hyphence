@@ -45,32 +45,47 @@
 // stance above. Both flags together produce a clean, error-free AST
 // matching this file's own productions exactly.
 //
-// ---- import-vs-vendor decision (hyphence#7) -------------------------
+// ---- ownership and composition (hyphence#11) -------------------------
 //
-// RFC 0002/0003 cite several trellis productions "by reference, not
-// duplicated" (Ident, IdentRune, Reserved, String, Char, Bareword,
-// DigestTerm, FieldName, SP, SP1, and RFC 0003's MarklTerm). Two ways
-// to make that reference real for langlang:
+// This file OWNS the doddish content productions it defines below —
+// Ident, IdentRune, Reserved, SigilRune, Bareword, MarklTerm,
+// DigestTerm, Digest, FieldName, SP, SP1. They ARE RFC 0002/0003's
+// content grammar, defined here.
 //
-//   (a) `@import Name from "./0014-trellis.peg"` (langlang's own
-//       mechanism; see langlang/go/tests/import/*.peg for the
-//       syntax) — requires cutting-garden's 0014-trellis.peg present
-//       at a path relative to this file at validation time, i.e. a
-//       live cross-repo Nix dependency staged into place per build.
-//   (b) Vendor the specific cited productions inline, clearly
-//       provenanced, re-synced deliberately rather than tracking
-//       trellis's live HEAD.
+// An earlier revision of this comment framed them as "vendored from
+// cutting-garden's 0014-trellis.peg," which had the dependency
+// direction backwards. The composition chain is:
 //
-// Chose (b). Trellis's grammar changed materially multiple times in
-// the single day this RFC pair was drafted (an interior-`@` IdentRune
-// amendment, itself superseded by the MarklTerm production, within
-// hours) — a live import would make this file's validity hostage to
-// unrelated trellis churn, and RFC 0002/0003's own prose already
-// freezes each citation "as of" a specific date rather than tracking
-// trellis's HEAD dynamically. (a) stays available as a follow-up if
-// the ecosystem wants live cross-repo grammar composition generally;
-// this file doesn't block on that. See the vendored section below for
-// exact provenance (source file, commit, date).
+//     piggy  →  hyphence  →  trellis (cutting-garden)
+//
+// cutting-garden imports `code.linenisgreat.com/hyphence/go/hyphence`;
+// hyphence imports neither cutting-garden nor piggy at the Go level.
+// So hyphence is UPSTREAM of trellis, and an `@import` from trellis
+// would be a dependency cycle. hyphence's only upstream is piggy.
+//
+// Per the 2026-07-22 grammar-composition ruling (one home per grammar
+// unit, composed upstream→downstream via langlang `@import`), the
+// markl-id PRIMITIVES are imported from piggy's marklid.peg rather
+// than re-defined here:
+//
+//   String, Char      the doddish quoting rules, whose ownership
+//                     flipped to piggy (piggy#236). hyphence's local
+//                     copies were byte-identical, so dropping them for
+//                     the import is semantically transparent.
+//   Format, DataChar  the markl-id digest primitives (piggy#237).
+//                     DataChar is the blech32 alphabet; Format is the
+//                     format-id rune class.
+//
+// langlang resolves `@import` RELATIVE to the importing file, so
+// marklid.peg must be staged beside this file at validation time —
+// `just validate-grammar` and the grammar-vectors gate both do that
+// from piggy's `.#marklid-grammar` flake output. langlang's 2-hop
+// transitive cross-file import was probed and works, so this composes
+// cleanly even though marklid.peg's own rules reference each other.
+//
+// Downstream consumers (trellis, papi) stage THIS file from the
+// `.#hyphence-content-grammar` flake output rather than reaching into
+// hyphence's source tree.
 //
 // ---- RFC 0004 (bindings) — STUB, not specified here ------------------
 //
@@ -88,7 +103,7 @@
 // TrailingComment (below) was originally `SP '%' (!LF .)*` — a space
 // before `%` was REQUIRED. Sasha ruled the space was never
 // load-bearing and should be dropped: `%` is already in `Reserved`
-// (see the vendored section below), so it can never appear unquoted
+// (see the owned-productions section below), so it can never appear unquoted
 // inside an `Ident`/`Bareword`/`FieldName`, and `String` consumes its
 // own `%` (`"50% off"` parses whole) — `%` is therefore self-delimiting
 // against every content production here, the standard PEG technique
@@ -134,6 +149,13 @@
 // their real productions.) This is why TrailingComment below reads
 // `SP? '%' ...`, not `'%' ...`.
 //
+// ---- imported from piggy (single source of truth) --------------------
+//
+// See "ownership and composition" above for why these four rules are
+// imported rather than defined here, and for the staging requirement
+// (marklid.peg must sit beside this file at validation time).
+@import String, Char, Format, DataChar from "./marklid.peg"
+
 // ---- entry point (validation convenience only) -----------------------
 //
 // hyphence has no single content grammar — which production applies
@@ -217,12 +239,11 @@ TrailingComment <- SP? '%' (!LF .)*
 // trellis operates on already-LF-stripped content).
 LF <- '\n'
 
-// ---- vendored from cutting-garden docs/rfcs/0014-trellis.peg --------
-// Source: cutting-garden commit d5afb1abaf93bdfab495fcd4c16c32be244b482b
-// (2026-07-18, the MarklTerm revision — see RFC 0003 §The MarklId
-// lexeme). Re-sync deliberately on a future re-read of this file's
-// header comment, not automatically. Comments trimmed to what's
-// load-bearing here; see the source file for full rationale prose.
+// ---- doddish content productions (owned here) ------------------------
+// RFC 0002 §Per-line-kind productions / RFC 0003 §Lock Grammar. See
+// "ownership and composition" above: these are hyphence's own. The one
+// exception is String/Char/Format/DataChar, imported from piggy at the
+// top of this file.
 
 // Identifiers are opaque object references using rune-class
 // EXCLUSION. `-` and `/` are admitted inline. Sigil runes are
@@ -232,25 +253,51 @@ IdentRune    <- '-' / '/' / (SigilRune &IdentRune) / (!Reserved !SP1 .)
 Reserved     <- [\[\]^=,!@<>*$~%#"'] / SigilRune
 SigilRune    <- [:+.?]
 
-// Doddish quoting rules verbatim: double or single quotes; backslash
-// escapes round-trip, unknown escapes pass the following character
-// through unchanged.
-String       <- '"' (!'"' Char)* '"'
-              / "'" (!"'" Char)* "'"
-Char         <- '\\' . / .
+// String and Char — the doddish quoting rules — are NOT defined here:
+// piggy owns them (piggy#236) and this file imports them (see the
+// `@import` above). Their definitions were byte-identical here before
+// the ownership flip, so the import is semantically transparent.
+
+// Lexically identical to Ident (same production body) under a
+// different rule name, matching RFC 0002's own naming.
 Bareword     <- IdentRune+
 
-// Blob identity — content-addressed exact match. Term-initial `@`.
-DigestTerm   <- '@' Ident
+// A markl-id digest slot, composed from piggy's imported Format and
+// DataChar primitives (piggy#237). CHARSET-STRICT but LENGTH-AGNOSTIC:
+// a full digest and an abbreviated one (a prefix, e.g.
+// `blake2b256-9ft3x`) differ only in DataChar count. Length and
+// checksum completeness stay SEMANTIC (decoder/evaluator) concerns
+// rather than grammar, matching piggy RFC 0011 §4.1's
+// grammar-vs-decoder split — that RFC's ABNF spells DataChar as
+// `charset-char`, and a PEG cannot compute a BCH checksum anyway.
+//
+// The trailing `!IdentRune` anchor is hyphence's OWN composition over
+// piggy's primitives: it rejects junk that a bare `DataChar+` would
+// otherwise leave as unconsumed trailing garbage. `blake2b256-9bt3`
+// fails because `b` — outside the blech32 alphabet — is an IdentRune
+// sitting immediately after the `9` DataChar run, so the lookahead
+// refuses instead of silently accepting a truncated `9`.
+//
+// This REPLACES the former permissive `Ident` digest slot, which
+// accepted any identifier. That is a deliberate tightening
+// (hyphence#11): malformed digests that previously parsed are now
+// rejected.
+Digest       <- Format '-' DataChar+ !IdentRune
 
-// A purpose-full markl id (`[purpose@]format-data`, markl-id(7) /
-// madder RFC 0002) is ONE structured two-slot term: a purpose slot
-// (bare identifier or quoted string) joined by `@` to a digest slot,
-// with the digest always structurally visible (never trapped inside
-// quoting). This production superseded trellis's earlier interior-`@`
-// IdentRune amendment; that history is RFC 0003 §The MarklId lexeme's
-// to tell, not repeated here.
-MarklTerm    <- (String / Ident) '@' Ident
+// Blob identity — content-addressed exact match. Term-initial `@`.
+DigestTerm   <- '@' Digest
+
+// A purpose-full markl id (`[purpose@]format-data`, piggy RFC 0011 at
+// code.linenisgreat.com/piggy/) is ONE structured two-slot term: a
+// purpose slot (bare identifier or quoted string) joined by `@` to a
+// digest slot, with the digest always structurally visible (never
+// trapped inside quoting). A purpose containing `@` is spelled by
+// quoting the purpose (`"a@b"@fmt-x`); the join is then the SECOND
+// `@`, so a decoder MUST locate it with a quote-aware scan and never
+// with the first `@`. This production superseded an earlier
+// interior-`@` IdentRune amendment; that history is RFC 0003 §The
+// MarklId lexeme's to tell, not repeated here.
+MarklTerm    <- (String / Ident) '@' Digest
 
 // Flat per-type field namespace; quoted field names are opaque.
 FieldName    <- String / Ident

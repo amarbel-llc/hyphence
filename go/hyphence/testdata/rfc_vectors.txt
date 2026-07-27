@@ -27,6 +27,17 @@
 #                                                followed (the validate subcommand
 #                                                surfaces ErrInlineBodyWithAtReference
 #                                                from this state).
+#   grammar/reject                             - the content-grammar harness
+#                                                (grammar_vectors_test.go) must find
+#                                                that the document's content-grammar-
+#                                                governed metadata lines do NOT parse
+#                                                under docs/rfcs/hyphence-content.peg
+#                                                via any real content production.
+#                                                Envelope decode must still SUCCEED:
+#                                                these pin content-grammar negatives,
+#                                                not malformed documents, so the
+#                                                envelope harnesses skip them by the
+#                                                namespace rule above.
 #
 # Comment lines start with #. Blank lines are ignored.
 #
@@ -95,15 +106,25 @@ trailing-comment-glued	LS0tCiEgbWQlZ2x1ZWQgY29tbWVudAotLS0K	legacy/parse-ok	-
 # deprecated-angle-still-accepted above still decode fine (content is
 # opaque at this envelope layer either way) but no longer demonstrate
 # the canonical spelling — see RFC 0003 §Test Vectors.
+#
+# Digest payloads here are BLECH32-VALID (hyphence#11). The grammar's
+# digest slot is charset-strict — `Digest <- Format '-' DataChar+
+# !IdentRune`, over piggy's imported DataChar — and the blech32 alphabet
+# omits `b`, `i`, `o`, and `1` (piggy RFC 0011 §3.1). The former `-abc`
+# and `-ghi` placeholders predate that strictness and would now be
+# rejected on their `b`/`i`; they read `-acd` and `-ghj` instead. These
+# are still arbitrary placeholders, not real digests — only their
+# CHARSET matters, since the grammar is deliberately length-agnostic and
+# checksum validity is a decoder concern.
 # Plain-text view:
-#   atomic-lock-type               : "---\n! md@blake2b256-abc\n---\n"
+#   atomic-lock-type               : "---\n! md@blake2b256-acd\n---\n"
 #   atomic-lock-reference           : "---\n! md\n- one/uno@blake2b256-def\n---\n"
-#   atomic-lock-typed-edge           : "---\n! task\n- blocks=task/other@blake2b256-ghi\n---\n"
+#   atomic-lock-typed-edge           : "---\n! task\n- blocks=task/other@blake2b256-ghj\n---\n"
 #   atomic-key-material-papi-shape  : "---\n! task\n- piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-qqxyz\n---\n"
 
-atomic-lock-type	LS0tCiEgbWRAYmxha2UyYjI1Ni1hYmMKLS0tCg==	legacy/parse-ok	-
+atomic-lock-type	LS0tCiEgbWRAYmxha2UyYjI1Ni1hY2QKLS0tCg==	legacy/parse-ok	-
 atomic-lock-reference	LS0tCiEgbWQKLSBvbmUvdW5vQGJsYWtlMmIyNTYtZGVmCi0tLQo=	document/parse-ok	-
-atomic-lock-typed-edge	LS0tCiEgdGFzawotIGJsb2Nrcz10YXNrL290aGVyQGJsYWtlMmIyNTYtZ2hpCi0tLQo=	document/parse-ok	-
+atomic-lock-typed-edge	LS0tCiEgdGFzawotIGJsb2Nrcz10YXNrL290aGVyQGJsYWtlMmIyNTYtZ2hqCi0tLQo=	document/parse-ok	-
 atomic-key-material-papi-shape	LS0tCiEgdGFzawotIHBpZ2d5LXBpdl9hdXRoLXYxQHNzaF9lY2RzYV9uaXN0cDI1Nl9wdWItcXF4eXoKLS0tCg==	document/parse-ok	-
 
 # RFC 0003 revision (2026-07-18): MarklTerm's quoted-purpose form and
@@ -114,3 +135,31 @@ atomic-key-material-papi-shape	LS0tCiEgdGFzawotIHBpZ2d5LXBpdl9hdXRoLXYxQHNzaF9lY
 
 quoted-purpose-marklterm	LS0tCiEgdGFzawotICJteSB0aGluZyJAYmxha2UyYjI1Ni14eXoKLS0tCg==	document/parse-ok	-
 spaced-field-emission	LS0tCiEgdGFzawotIGR1ZSA9ICIyMDI2LTA4LTAxIgotLS0K	document/parse-ok	-
+
+# hyphence#11: the charset-strict digest slot, and the quoted-purpose
+# join rune.
+#
+# marklterm-quoted-purpose-with-join-rune pins the case where a quoted
+# purpose CONTAINS `@`: quoting is the escape mechanism, so it must be
+# able to carry the very rune it escapes. The join is then the SECOND
+# `@`, which means a decoder MUST locate it with a quote-aware scan and
+# never with the first one. piggy treats this as its single most
+# divergence-prone point (RFC 0011 §2.2, piggy#227) and trellis pins it
+# too; hyphence previously pinned only the space-carrying
+# `"my thing"@...` form, leaving this shape unguarded.
+#
+# digest-junk-non-blech32 pins the property the imported DataChar buys
+# over the former permissive `'@' Ident` digest slot: `blake2b256-9bt3`
+# MUST be rejected, because `b` is outside the blech32 alphabet and is
+# therefore an IdentRune sitting immediately after the `9` DataChar run
+# — which the `!IdentRune` anchor refuses instead of silently accepting
+# a truncated `9`. Under the old permissive slot this parsed happily, so
+# without this vector the tightening could regress unnoticed. The
+# document is ENVELOPE-valid; only its content is ill-formed, hence
+# grammar/reject rather than a document/parse-error-* outcome.
+# Plain-text view:
+#   marklterm-quoted-purpose-with-join-rune : "---\n! task\n- \"a@b\"@blake2b256-xyz\n---\n"
+#   digest-junk-non-blech32                 : "---\n! md@blake2b256-9bt3\n---\n"
+
+marklterm-quoted-purpose-with-join-rune	LS0tCiEgdGFzawotICJhQGIiQGJsYWtlMmIyNTYteHl6Ci0tLQo=	document/parse-ok	-
+digest-junk-non-blech32	LS0tCiEgbWRAYmxha2UyYjI1Ni05YnQzCi0tLQo=	grammar/reject	-

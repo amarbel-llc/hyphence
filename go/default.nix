@@ -45,10 +45,16 @@
   # flake.nix. Only used by grammar-vectors-test below; defaulted null
   # so non-flake callers skip that derivation entirely.
   langlang ? null,
-  # docs/rfcs/hyphence-content.peg's Nix path (passed from flake.nix) —
-  # outside go/'s own src fileset, so grammar-vectors-test needs it
-  # threaded in explicitly. Defaulted null; required whenever langlang
-  # is set (see grammar-vectors-test's assertion below).
+  # Path to hyphence-content.peg (passed from flake.nix) — outside go/'s
+  # own src fileset, so grammar-vectors-test needs it threaded in
+  # explicitly. Defaulted null; required whenever langlang is set (see
+  # grammar-vectors-test's assertion below).
+  #
+  # Since hyphence#11 this MUST be the STAGED copy (flake.nix's
+  # grammarStaged), not the source file: the peg `@import`s piggy's
+  # marklid.peg, and langlang resolves `@import` relative to the importing
+  # file, so the two have to be co-located in the same directory. Passing
+  # the source path would fail the import resolution.
   grammarPeg ? null,
 }:
 let

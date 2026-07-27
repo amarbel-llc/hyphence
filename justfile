@@ -57,6 +57,43 @@ validate-grammar:
 test-grammar-vectors:
     nix build .#grammar-vectors-test --show-trace
 
+# Dump the compiled grammar AST for docs/rfcs/hyphence-content.peg, resolved
+# against the staged marklid.peg (hyphence#11). validate-grammar only asserts
+# langlang exits 0; this recipe is how you actually LOOK at what it compiled —
+# e.g. to confirm the `@import` of piggy's String/Char/Format/DataChar resolved
+# rather than being silently dropped, or to check whether -disable-spaces really
+# suppressed the whitespace injector. Pipe to grep/rg to inspect a single rule.
+[group('debug')]
+debug-grammar-ast:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    staged=$(nix build --no-link --print-out-paths '.#grammarStaged')
+    nix run '.#langlang' -- \
+      -grammar "$staged/hyphence-content.peg" \
+      -grammar-ast \
+      -disable-builtins \
+      -disable-spaces
+
+# Encode a hyphence document into the base64 input field used by
+# go/hyphence/testdata/rfc_vectors.txt (and its byte-identical rust/ twin).
+# Adding or amending a vector otherwise means hand-computing base64, which is
+# error-prone and unreviewable. Backslash escapes are interpreted (\n, \t), so
+# the argument can be copied straight from the "Plain-text view" comments the
+# vectors file keeps beside each block.
+# Usage: just debug-vector-encode '---\n! md@blake2b256-acd\n---\n'
+[group('debug')]
+debug-vector-encode doc:
+    @printf '%b' '{{ doc }}' | base64 -w0
+    @echo
+
+# Decode a vectors-file base64 input field back to its plain-text document, so
+# a vector line can be read (and its "Plain-text view" comment checked for
+# drift) without mental base64. Line ends show as `$` via `cat -A`.
+# Usage: just debug-vector-decode LS0tCiEgbWQKLS0tCg==
+[group('debug')]
+debug-vector-decode b64:
+    @printf '%s' '{{ b64 }}' | base64 -d | cat -A
+
 # Vet the Go sources — the cheap static-analysis pass.
 [group('pre-build')]
 lint-go:

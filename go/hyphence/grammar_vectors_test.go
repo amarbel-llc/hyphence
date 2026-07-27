@@ -37,7 +37,26 @@ var grammarCheckableOutcomes = map[string]bool{
 	"legacy/parse-ok":                          true,
 	"document/parse-ok":                        true,
 	"document/parse-error-inline-body-with-at": true,
+	// grammar/reject is this harness's OWN namespace (hyphence#11): the
+	// envelope decodes fine, but the content must NOT parse under any
+	// real content production. Listed here so the vector reaches the
+	// per-line loop below, where the assertion is inverted.
+	grammarRejectOutcome: true,
 }
+
+// grammarRejectOutcome marks a vector whose content-grammar-governed
+// metadata lines MUST NOT parse under hyphence-content.peg via a real
+// content production. It is the only NEGATIVE outcome this file owns,
+// and it exists because the corpus had no way to express one: every
+// other outcome asserts a successful parse, so a malformed-content
+// vector added under any of them would fail the FreeText-fallback check
+// in assertParsesUnderGrammar rather than pinning the rejection.
+//
+// The envelope harnesses (rfc_conformance_test.go, document_test.go)
+// skip this namespace per the vector file's own namespacing rule, so a
+// grammar/reject vector's document still has to be envelope-VALID —
+// only its content is ill-formed.
+const grammarRejectOutcome = "grammar/reject"
 
 // langlangStartRule is hyphence-content.peg's first (start) rule.
 // langlang's `-input` mode always parses against the grammar's start
@@ -93,6 +112,16 @@ func TestGrammarVectors(t *testing.T) {
 				t.Fatalf("decode vector: %v", err)
 			}
 
+			// A grammar/reject vector asserts the DOCUMENT carries
+			// content the grammar refuses — at least one
+			// content-governed line must fail to match a real
+			// production. "At least one" rather than "all": a realistic
+			// negative can pair a well-formed line with an ill-formed
+			// one (`- good=value` beside `- bad=@junk`), and demanding
+			// every line be rejected would forbid that shape.
+			expectReject := v.outcome == grammarRejectOutcome
+			sawReject := false
+
 			for _, ml := range doc.Metadata {
 				switch ml.Prefix {
 				case '!', '@', '-', '<':
@@ -100,9 +129,21 @@ func TestGrammarVectors(t *testing.T) {
 					continue
 				}
 
+				if expectReject {
+					if ok, _ := parsesUnderGrammar(t, langlangBin, grammarPeg, ml.Value); !ok {
+						sawReject = true
+					}
+
+					continue
+				}
+
 				t.Run(string(ml.Prefix), func(t *testing.T) {
 					assertParsesUnderGrammar(t, langlangBin, grammarPeg, ml.Value)
 				})
+			}
+
+			if expectReject && !sawReject {
+				t.Errorf("outcome %s: every content-governed line parsed under hyphence-content.peg, but this vector asserts at least one must be rejected — the grammar may have regressed to a permissive production", grammarRejectOutcome)
 			}
 		})
 	})
@@ -126,7 +167,27 @@ func resolveGrammarPeg() (string, error) {
 	return p, nil
 }
 
+// assertParsesUnderGrammar fails the test unless content matches a real
+// content-grammar production.
 func assertParsesUnderGrammar(t *testing.T, langlangBin, grammarPeg, content string) {
+	t.Helper()
+
+	if ok, detail := parsesUnderGrammar(t, langlangBin, grammarPeg, content); !ok {
+		t.Errorf("content %q did not parse under hyphence-content.peg via a real content production:\n%s", content, detail)
+	}
+}
+
+// parsesUnderGrammar runs one content string through langlang against
+// hyphence-content.peg and reports whether it matched a REAL content
+// production — DashContent/TypeContent/BlobContent and their
+// descendants — as opposed to failing outright or falling through to the
+// FreeText catch-all. detail carries langlang's output for diagnostics.
+//
+// Splitting this predicate out of the assertion is what lets the
+// grammar/reject outcome reuse the identical parse logic with an
+// inverted expectation, instead of a second near-copy that could drift
+// from this one.
+func parsesUnderGrammar(t *testing.T, langlangBin, grammarPeg, content string) (bool, string) {
 	t.Helper()
 
 	tmp, err := os.CreateTemp(t.TempDir(), "hyphence-grammar-vector-*")
@@ -160,10 +221,10 @@ func assertParsesUnderGrammar(t *testing.T, langlangBin, grammarPeg, content str
 	cmd.Stderr = &stderr
 	cmdErr := cmd.Run()
 	trimmed := strings.TrimSpace(ansiSGRPattern.ReplaceAllString(stdout.String(), ""))
+	detail := "stdout: " + stdout.String() + "\nstderr: " + stderr.String()
 
 	if cmdErr != nil || !strings.HasPrefix(trimmed, langlangStartRule) || langlangFailurePattern.MatchString(trimmed) {
-		t.Errorf("content %q did not parse under hyphence-content.peg:\nstdout: %s\nstderr: %s", content, stdout.String(), stderr.String())
-		return
+		return false, detail
 	}
 
 	// HyphenceContent's last alternative, FreeText, matches ANY
@@ -180,8 +241,11 @@ func assertParsesUnderGrammar(t *testing.T, langlangBin, grammarPeg, content str
 	// grammar regression (hyphence#9's own reason for existing). If a
 	// FUTURE vector legitimately needs the old, retired notation (like
 	// the three already in vectorsExcludedFromGrammarCheck), add it
-	// there rather than letting it fail here.
+	// there rather than letting it fail here — or, if the point IS that
+	// the content must be refused, give it the grammar/reject outcome.
 	if strings.Contains(trimmed, "FreeText") {
-		t.Errorf("content %q only parsed via HyphenceContent's FreeText fallback, not a real content-grammar production — if this is deliberately a retired-spelling vector, add it to vectorsExcludedFromGrammarCheck:\n%s", content, stdout.String())
+		return false, "content matched only HyphenceContent's FreeText fallback, not a real content-grammar production — if this is deliberately a retired-spelling vector, add it to vectorsExcludedFromGrammarCheck; if it should be refused outright, give it the " + grammarRejectOutcome + " outcome:\n" + detail
 	}
+
+	return true, detail
 }

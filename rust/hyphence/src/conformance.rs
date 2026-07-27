@@ -89,13 +89,40 @@ fn rfc_test_vectors() {
             "document/parse-error-inline-body-with-at" => {
                 assert_eq!(result, Err(Error::InlineBodyWithAtReference), "{name}");
             }
-            other => panic!("{name}: unknown outcome {other:?}"),
+            // Outcomes are namespaced by owning harness so several
+            // harnesses can share this one canonical vector file, and the
+            // file's own header documents that a foreign namespace is
+            // SKIPPED. This harness owns `legacy/` and `document/` — the
+            // envelope outcomes. `grammar/` belongs to the Go
+            // content-grammar harness (grammar_vectors_test.go), which
+            // needs langlang and the .peg, neither of which this crate
+            // has; its vectors are still envelope-valid, they just are
+            // not this harness's to assert.
+            //
+            // Before hyphence#11 this arm panicked on ANY unrecognized
+            // outcome, which contradicted both the documented rule and
+            // both Go harnesses (each of which skips outside its own
+            // prefix). Adding the `grammar/` namespace is what surfaced
+            // the divergence.
+            other => {
+                assert!(
+                    !other.starts_with("legacy/") && !other.starts_with("document/"),
+                    "{name}: unknown outcome {other:?} inside this harness's own namespace"
+                );
+                continue;
+            }
         }
         ran += 1;
     }
 
-    assert_eq!(
-        ran, 19,
-        "expected to exercise all nineteen RFC vectors, ran {ran}"
+    // A LOWER bound, not an equality: the previous `== 19` had to be
+    // hand-bumped for every vector added, and adding one is otherwise a
+    // testdata-only edit (the file header promises exactly that). A floor
+    // still catches the regression that assertion existed for — vectors
+    // silently ceasing to be exercised — without turning every new vector
+    // into a source change here.
+    assert!(
+        ran >= 19,
+        "expected to exercise at least the nineteen envelope RFC vectors, ran {ran}"
     );
 }

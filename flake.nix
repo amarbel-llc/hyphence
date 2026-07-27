@@ -88,6 +88,34 @@
     langlang.inputs.conformist.inputs.igloo.inputs.systems.follows = "igloo/systems";
     langlang.inputs.conformist.inputs.igloo.inputs.treefmt-nix.follows = "igloo/treefmt-nix";
     langlang.inputs.conformist.follows = "conformist";
+
+    # piggy: a GRAMMAR-ONLY input (hyphence#11). hyphence's Go and Rust
+    # implementations do not depend on piggy at all — only the langlang
+    # grammar gate does, for the `.#marklid-grammar` output (piggy's
+    # go/internal/bravo/markl/marklid.peg). docs/rfcs/hyphence-content.peg
+    # `@import`s String/Char/Format/DataChar from that file, and langlang
+    # resolves `@import` relative to the importing file, so marklid.peg has
+    # to be staged beside the peg at validation time (see grammarStaged
+    # below). This is the same cross-repo grammar-staging pattern papi
+    # already uses for hyphence's own peg, and the deliberate consequence of
+    # the 2026-07-22 grammar-composition ruling: one home per grammar unit,
+    # composed upstream→downstream rather than vendored.
+    #
+    # Every shared input is followed so flake.lock keeps one node each
+    # (doppelgang's `lint` dedup gate). piggy's jcardsim / pivapplet /
+    # oracle-javacard-sdks source inputs have no counterpart here and stay
+    # unfollowed — they are locked but never evaluated by this flake, which
+    # only ever forces `piggy.packages.${system}.marklid-grammar`.
+    piggy = {
+      url = "https://code.linenisgreat.com/piggy/archive/master.tar.gz";
+      inputs.igloo.follows = "igloo";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+      inputs.bats.follows = "bats";
+      inputs.conformist.follows = "conformist";
+      inputs.purse-first.follows = "purse-first";
+      inputs.langlang.follows = "langlang";
+    };
   };
 
   outputs =
@@ -101,6 +129,7 @@
       conformist,
       doppelgang,
       langlang,
+      piggy,
       ...
     }:
     let
@@ -180,7 +209,12 @@
           man1Src = ./docs/man.1;
           # hyphence#9: langlang -input vector cross-check (grammar-vectors-test).
           inherit langlang;
-          grammarPeg = ./docs/rfcs/hyphence-content.peg;
+          # The STAGED peg, not ./docs/rfcs/hyphence-content.peg directly:
+          # since hyphence#11 the peg `@import`s piggy's marklid.peg, which
+          # langlang resolves relative to the importing file, so the vector
+          # cross-check has to run against the copy that has marklid.peg
+          # beside it.
+          grammarPeg = "${grammarStaged}/hyphence-content.peg";
         };
 
         # bats-hyphence: the hermetic CLI integration lane (zz-tests_bats/
@@ -243,13 +277,42 @@
             }
             ''
               langlang \
-                -grammar ${./docs/rfcs/hyphence-content.peg} \
+                -grammar ${grammarStaged}/hyphence-content.peg \
                 -grammar-ast \
                 -disable-builtins \
                 -disable-spaces \
                 > /dev/null
               touch "$out"
             '';
+
+        # hyphence-content-grammar: docs/rfcs/hyphence-content.peg as a bare
+        # store path, so downstream repos (cutting-garden's trellis, papi)
+        # stage it hermetically at their own validation time instead of
+        # reaching into hyphence's source tree or vendoring a copy. This is
+        # hyphence's grammar EXPORT SURFACE: the peg's named rules
+        # (Ident, IdentRune, Reserved, SigilRune, Bareword, Digest,
+        # MarklTerm, DigestTerm, FieldName, SP, SP1) are a contract for
+        # `@import`ing consumers, and renaming one is a breaking change for
+        # them. Mirrors piggy's own `.#marklid-grammar` output, which is how
+        # this file gets marklid.peg in turn (hyphence#11).
+        hyphence-content-grammar = pkgs.runCommandLocal "hyphence-content.peg" { } ''
+          cp ${./docs/rfcs/hyphence-content.peg} "$out"
+        '';
+
+        # grammarStaged: hyphence-content.peg and piggy's marklid.peg
+        # CO-LOCATED in one directory. langlang resolves `@import` relative
+        # to the importing file, so the peg's
+        # `@import ... from "./marklid.peg"` only resolves when the two sit
+        # side by side — this derivation is that co-location, shared by
+        # validate-grammar above and go/default.nix's grammar-vectors-test
+        # (which is handed the staged peg path, not the source one, for
+        # exactly this reason). Mirrors piggy's TestGrammarImportSurface
+        # staging and cutting-garden's own validate-grammar.
+        grammarStaged = pkgs.runCommandLocal "hyphence-content-grammar-staged" { } ''
+          mkdir -p "$out"
+          cp ${./docs/rfcs/hyphence-content.peg} "$out/hyphence-content.peg"
+          cp ${piggy.packages.${system}.marklid-grammar} "$out/marklid.peg"
+        '';
 
         # checks.vectors-equality: the Go and Rust impls each carry their own
         # copy of the normative RFC 0001 vectors (per-crate copies keep each
@@ -291,6 +354,17 @@
           # The langlang grammar-validation gate, built by
           # `just validate-grammar` (hyphence#7).
           inherit validate-grammar;
+
+          # The grammar export surface for downstream `@import`ers
+          # (cutting-garden's trellis, papi) plus the co-located staging dir
+          # the local gates validate against (hyphence#11).
+          inherit hyphence-content-grammar grammarStaged;
+
+          # The raw langlang CLI, so `just debug-grammar-ast` can inspect what
+          # the grammar actually compiled to (validate-grammar only asserts an
+          # exit status). Mirrors how `conformist` is exposed above for
+          # `just lint-worktree`.
+          langlang = langlang.packages.${system}.default;
 
           # grammar-vectors-test (hyphence#9) is already present in this
           # merged attrset via `result.packages` above — go/default.nix
