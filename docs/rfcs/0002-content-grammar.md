@@ -43,18 +43,33 @@ Scope boundary:
 
 ### Lexical foundation
 
-Line content is not a bespoke grammar. It reuses trellis's lexical and per-term productions directly — one lexical universe, per the confirmed design. This RFC does not duplicate those productions; it cites them by name from `0014-trellis.peg` and layers hyphence-specific composition rules (line-kind dispatch, the lock suffix) on top.
+Line content is not a bespoke grammar. It shares one lexical universe with trellis, per the confirmed design, and layers hyphence-specific composition rules (line-kind dispatch, the lock suffix) on top.
 
-Productions reused verbatim from `0014-trellis.peg`:
+> **Revised 2026-07-27 (ownership direction; [hyphence#11](https://code.linenisgreat.com/linenisgreat/hyphence/issues/11)).** This section originally described the productions below as "reused verbatim from `0014-trellis.peg`" and cited them by name from cutting-garden. That had the dependency direction backwards. cutting-garden imports `code.linenisgreat.com/hyphence/go/hyphence`; hyphence imports neither cutting-garden nor piggy at the Go level. The composition chain is **piggy → hyphence → trellis**, so hyphence is UPSTREAM of trellis and an `@import` from trellis would be a dependency cycle.
+>
+> Per the 2026-07-22 grammar-composition ruling (one home per grammar unit, composed upstream→downstream via langlang `@import`), the productions below are **hyphence's own**, defined normatively in `docs/rfcs/hyphence-content.peg`. The exceptions are the markl-id primitives, which hyphence imports from piggy's `marklid.peg`: `String` and `Char` (the doddish quoting rules, whose ownership flipped to piggy in piggy#236 — the definitions were byte-identical, so the import is semantically transparent) and `Format`/`DataChar` (the digest primitives, piggy#237). Trellis will in turn import from hyphence, reversing the original relationship; that is a cutting-garden-side change.
+
+Productions this grammar defines (see `docs/rfcs/hyphence-content.peg` for the normative text):
 
 | Production | Role |
 |---|---|
 | `Ident`, `IdentRune`, `Reserved` | opaque identifier lexis (rune-class exclusion; `-` and `/` admitted inline; the strict term-final sigil rule) |
-| `String`, `Char` | quoted literal (the `QuotedRef` escape hatch for content containing reserved runes) |
-| `DigestTerm` | `'@' Ident` — blob-identity ground term |
+| `String`, `Char` | quoted literal (the `QuotedRef` escape hatch for content containing reserved runes). **Imported from piggy** since 2026-07-27 |
+| `Digest` | `Format '-' DataChar+ !IdentRune` — the charset-strict markl-id digest slot, over piggy's imported `Format`/`DataChar`. Added 2026-07-27; see the revision note below |
+| `DigestTerm` | `'@' Digest` — blob-identity ground term. Was `'@' Ident` before 2026-07-27 |
 | `FieldName` | `String / Ident` |
 | `Bareword` | `IdentRune+` — unquoted field value |
 | `SP`, `SP1` | mandatory whitespace |
+
+> **Revised 2026-07-27 (charset-strict digest; [hyphence#11](https://code.linenisgreat.com/linenisgreat/hyphence/issues/11)).** The digest slot was `Ident`, which accepted **any** identifier after the `@` — `@blake2b256-9bt3` parsed even though `b` is not a blech32 character. It is now composed from piggy's imported primitives:
+>
+> ```
+> Digest = Format "-" DataChar+ !IdentRune
+> ```
+>
+> Charset-strict but **length-agnostic**: a full digest and an abbreviated prefix (`blake2b256-9ft3x`) differ only in `DataChar` count. Length and checksum completeness remain semantic (decoder) concerns per piggy RFC 0011 §4.1 — a PEG cannot compute a BCH checksum. The trailing `!IdentRune` anchor is hyphence's own composition over those primitives: it rejects junk a bare `DataChar+` would leave as unconsumed trailing garbage, so `blake2b256-9bt3` fails because `b` is an `IdentRune` sitting immediately after the `9` `DataChar` run rather than being silently accepted as a truncated `9`.
+>
+> This is a **behavior change**: malformed digests that previously parsed are now rejected. Per "Existing decoders remain conforming" above, it binds only decoders that implement content-grammar validation — envelope-only decoders are unaffected, and both reference implementations keep their decode paths envelope-only, surfacing the strict check through `hyphence validate` instead.
 
 Hyphence line content is restricted to the **ground fragment** of trellis — what RFC 0014 §Isometry calls **espalier**: a data instance is "a query that matches exactly itself" (`=`-semantics only, no other operators, no value lists, no sigils, no closures). A metadata line asserts a fact about one object; it is not a query. Consequently, in content position:
 

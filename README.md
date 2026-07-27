@@ -24,6 +24,28 @@ conforming implementation must agree with the shared conformance vectors.
 - [`docs/rfcs/0001-hyphence.md`](docs/rfcs/0001-hyphence.md) — normative format specification
 - [`docs/man.7/hyphence.md`](docs/man.7/hyphence.md) — tutorial / reference manual
 
+## Content grammar
+
+The envelope treats a line's value as opaque, but the value does have a grammar:
+RFC 0002 (as amended by RFC 0003), whose normative text is the langlang-validated
+[`docs/rfcs/hyphence-content.peg`](docs/rfcs/hyphence-content.peg). Both
+implementations ship it (`hyphence.ParseContent` in Go, `parse_content` in Rust),
+and `hyphence validate` applies it.
+
+It is layered, not folded in: `decode` stays envelope-only so documents written
+against RFC 0001 alone keep decoding, and content strictness is opt-in. The
+practical consequence is the charset-strict markl-id digest slot — a payload
+outside the blech32 alphabet is rejected by `validate` but still decodes.
+
+The grammar composes across repos, upstream to downstream, via langlang
+`@import`: **piggy → hyphence → trellis** (cutting-garden). hyphence imports the
+markl-id primitives (`String`, `Char`, `Format`, `DataChar`) from piggy's
+`marklid.peg`, and exports its own productions for downstream consumers as the
+`.#hyphence-content-grammar` flake output, so they stage the `.peg` hermetically
+rather than vendoring a copy. Because langlang resolves `@import` relative to the
+importing file, the local grammar gates stage piggy's `marklid.peg` beside the
+`.peg` before running (`.#grammarStaged`).
+
 ## Layout
 
 The repository is polyglot, with one implementation per language under a
@@ -41,7 +63,8 @@ standalone. Its `Type` / `Digest` value types are opaque wrappers — they hold
 the `!` tag and `@` digest as plain strings and round-trip them verbatim.
 
 The Rust crate (`rust/hyphence/`) implements the same RFC 0001 envelope
-(`Document::{decode,encode}`) with zero dependencies. A root virtual-workspace
+(`Document::{decode,encode}`) with zero dependencies, and the same content
+grammar (`parse_content`). A root virtual-workspace
 `Cargo.toml` exists only so the crate resolves as a cargo git dependency; it
 does not disturb the `go/` ↔ `rust/` peer layout. Both implementations are
 checked against the same `rfc_vectors.txt` (kept byte-identical by a
@@ -54,7 +77,7 @@ inspection and re-emission of on-disk hyphence documents, reading a file or `-`
 for stdin:
 
 ```sh
-hyphence validate FILE   # check a document against RFC 0001 (exit non-zero on error)
+hyphence validate FILE   # check against RFC 0001 + the RFC 0002/0003 content grammar (exit non-zero on error)
 hyphence meta FILE       # print just the metadata section (boundaries stripped)
 hyphence body FILE       # stream just the body bytes
 hyphence format FILE     # re-emit in canonical line order (idempotent)

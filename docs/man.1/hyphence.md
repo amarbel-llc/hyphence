@@ -43,9 +43,19 @@ usage for that subcommand. An unrecognized subcommand is an error
 # COMMANDS
 
 **hyphence validate** *path|-*
-:   Strict RFC 0001 conformance check. Silent and exits 0 on pass; on the
-    first violation, prints one line-numbered diagnostic to stderr and
-    exits non-zero. Also enforces the inline-body-AND-**@** rule (RFC 0001
+:   Strict RFC 0001 conformance check, plus the RFC 0002/0003 content
+    grammar. Silent and exits 0 on pass; on the first violation, prints
+    one line-numbered diagnostic to stderr and exits non-zero.
+
+    The content-grammar pass checks what each line's value *says*, not
+    just that the envelope carries it, and includes the charset-strict
+    markl-id digest slot: a digest payload outside the blech32 alphabet
+    is rejected (`! md@blake2b256-9bt3` fails on the **b**, which
+    blech32 omits as visually ambiguous). Note that the library's own
+    decoders stay envelope-only and accept such content — this stricter
+    check is what **validate** adds over merely decoding a document.
+
+    Also enforces the inline-body-AND-**@** rule (RFC 0001
     §Metadata Lines): a document must not carry both an **@** blob-reference
     line and a body section.
 

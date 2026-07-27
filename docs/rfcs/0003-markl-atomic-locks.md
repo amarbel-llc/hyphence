@@ -23,7 +23,7 @@ Ruled by Sasha on [linenisgreat/hyphence#6](https://code.linenisgreat.com/lineni
 
 ## Abstract
 
-RFC 0002 gave a locked value its own grammar: an appended `Lock = SP DigestTerm` suffix, spelled `SP "@" Ident`. This RFC retires that production. A locked value was never a hyphence-level construct in need of hyphence-level syntax — it is an ordinary **markl id**, and a markl id's own text form (`[purpose@]format-data`, madder RFC 0002 / markl-id(7) §STRUCTURE) already joins a purpose to its payload with an unspaced `@`. Trellis now recognizes that join as its own dedicated production, `MarklTerm <- (String / Ident) '@' Ident` (cutting-garden `docs/rfcs/0014-trellis.peg`), tried before `Ident`/`QuotedRef` — so "locking a value" reduces to *writing that value as a purpose-full markl id* — no separate suffix, no new hyphence-side production, just an explicit `MarklTerm` alternative added to the handful of hyphence productions that could hold one. `! md@blake2b256-…`, `- one/uno@blake2b256-…`, and `- blocks=task/other@blake2b256-…` are, each, one atomic `MarklTerm`. The wire form of a markl id carries no spaces; presentation layers may add them for readability. This is a superseding RFC, not an in-place revision of RFC 0002, because it changes what RFC 0002's already-merged lock-form test vectors demonstrate, and RFC 0001 §Test Vectors requires supersession for that.
+RFC 0002 gave a locked value its own grammar: an appended `Lock = SP DigestTerm` suffix, spelled `SP "@" Ident`. This RFC retires that production. A locked value was never a hyphence-level construct in need of hyphence-level syntax — it is an ordinary **markl id**, and a markl id's own text form (`[purpose@]format-data`, piggy RFC 0011 §2) already joins a purpose to its payload with an unspaced `@`. Trellis now recognizes that join as its own dedicated production, `MarklTerm <- (String / Ident) '@' Ident` (cutting-garden `docs/rfcs/0014-trellis.peg`), tried before `Ident`/`QuotedRef` — so "locking a value" reduces to *writing that value as a purpose-full markl id* — no separate suffix, no new hyphence-side production, just an explicit `MarklTerm` alternative added to the handful of hyphence productions that could hold one. `! md@blake2b256-…`, `- one/uno@blake2b256-…`, and `- blocks=task/other@blake2b256-…` are, each, one atomic `MarklTerm`. The wire form of a markl id carries no spaces; presentation layers may add them for readability. This is a superseding RFC, not an in-place revision of RFC 0002, because it changes what RFC 0002's already-merged lock-form test vectors demonstrate, and RFC 0001 §Test Vectors requires supersession for that.
 
 Alongside the lock supersession, this revision documents four adjacent findings and refinements ruled on in the same follow-up: the `<` content-internal operator dodder already ships (a document-scoped binding, not a lock — direction only, full grammar in a future RFC 0004); optional, medium-dependent spacing around `=`; a corrected, structured (not opaque) MarklId production; and a one-paragraph field-residence clarification.
 
@@ -39,31 +39,37 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in
 
 ## The MarklId lexeme
 
-A markl id's text form, per madder `docs/rfcs/0002-markl-id-format.md` §2 and `markl-id(7)` §STRUCTURE:
+A markl id's text form, per piggy RFC 0011 (`docs/rfcs/0011-markl-id-format.md` §2, at `code.linenisgreat.com/piggy/`):
 
 ```
 MarklId = (Purpose "@")? FormatData
 ```
 
-`Purpose` provides semantic context for the payload (optional); `FormatData` is the blech32-encoded payload, HRP-tagged by format. This RFC does not duplicate that grammar — `Purpose` and `FormatData`'s own lexical rules are madder's to define, cited here by reference only, the same pattern RFC 0002 used for trellis's productions.
+`Purpose` provides semantic context for the payload (optional); `FormatData` is the blech32-encoded payload, HRP-tagged by format. This RFC does not duplicate that grammar — `Purpose` and `FormatData`'s own lexical rules are piggy's to define, cited here by reference only.
+
+> **Citation corrected 2026-07-27 ([hyphence#11](https://code.linenisgreat.com/linenisgreat/hyphence/issues/11)).** This section originally cited "madder `docs/rfcs/0002-markl-id-format.md`" and `markl-id(7)`. The markl-id spec moved to **piggy** on 2026-07-20 to complete the markl-ownership inversion, and was renumbered **RFC 0011** because piggy's 0002 slot already held the PIV-ECDH box format. Section numbers are unchanged, so prior citations of "§2" still land on the right text. Stale pointers into madder caused a real sequencing error once already (linenisgreat/madder#273), hence correcting rather than leaving them.
 
 **Revised 2026-07-18: MarklId is `MarklTerm`, a structured two-slot production in trellis's own grammar — not admitted through `Ident`'s interior structure.** The first draft of this RFC treated a purpose-full markl id as admitted purely through an interior-`@` amendment to `IdentRune` — one opaque token, no internal structure visible to the grammar. That amendment was itself superseded before landing: cutting-garden `docs/rfcs/0014-trellis.peg` now defines a dedicated production instead, `IdentRune` reverting to its pre-amendment form (`@` is `Reserved` again, not identifier-interior):
 
 ```
-MarklTerm <- (String / Ident) '@' Ident
+MarklTerm <- (String / Ident) '@' Digest
 ```
+
+> **Revised 2026-07-27: the digest slot is `Digest`, not `Ident` ([hyphence#11](https://code.linenisgreat.com/linenisgreat/hyphence/issues/11)).** As drafted, this production read `(String / Ident) '@' Ident` — the digest slot accepted any identifier, so `md@blake2b256-9bt3` parsed despite `b` being outside the blech32 alphabet. hyphence's grammar now composes the slot from piggy's imported primitives, `Digest <- Format '-' DataChar+ !IdentRune` (RFC 0002 §Lexical foundation carries the full rationale). The two-slot shape and everything this section argues about it are unchanged; only the digest slot got stricter. Read `Ident` as `Digest` in the discussion below.
 
 tried in `BasicTerm` **before** `QuotedRef`/`Ident` (`BasicTerm <- Group / FieldPred / TypeTerm Sigil? / DigestTerm Sigil? / MarklTerm Sigil? / QuotedRef Sigil? / Ident Sigil? / Sigil`), so `a@b` and `"a b"@c` are recognized as markl terms outright, never as an identifier with a dangling `@` or a quoted string that happens to be followed by more content. `FieldPred`'s `Value` gained the same alternative: `Value <- MarklTerm / String / DigestTerm / Bareword`.
 
 A dedicated production rather than an `Ident`-interior rule resolves three requirements the opaque-token approach couldn't:
 
-1. **Quoting a purpose that needs it must not trap the digest inside the quotes.** `"my thing"@blake2b256-…` — **not** `"my thing@blake2b256-…"`. The latter buries the digest inside one string literal; only `MarklTerm`'s explicit `(String / Ident) '@' Ident` shape keeps the digest structurally outside the quotes.
+1. **Quoting a purpose that needs it must not trap the digest inside the quotes.** `"my thing"@blake2b256-…` — **not** `"my thing@blake2b256-…"`. The latter buries the digest inside one string literal; only `MarklTerm`'s explicit `(String / Ident) '@' Digest` shape keeps the digest structurally outside the quotes.
 2. **Presentation elision needs a grammar-level digest boundary.** Editor integrations that elide or trie-abbreviate a digest payload for display (see "Wire form vs. presentation" below) need to know grammatically where the digest starts, not infer it from an opaque token's internal bytes.
-3. **A purpose containing a literal `@` is spelled by quoting the purpose slot** (`"a@b"@fmt-x`) — the join point is `MarklTerm`'s own unquoted `@`, a real production boundary, so a quoted purpose's interior `@` is never ambiguous with it.
+3. **A purpose containing a literal `@` is spelled by quoting the purpose slot** (`"a@b"@fmt-x`) — the join point is `MarklTerm`'s own unquoted `@`, a real production boundary, so a quoted purpose's interior `@` is never ambiguous with it. Note the consequence for implementations: the join is then the **second** `@`, so a decoder MUST locate it with a quote-aware scan and never with the first `@`. piggy treats this as the single most divergence-prone point in the whole lexeme (piggy RFC 0011 §2.2, piggy#227); it is pinned by the `marklterm-quoted-purpose-with-join-rune` vector as of 2026-07-27.
 
-Hyphence's own content grammar does not duplicate `MarklTerm`'s definition — it is cited by name, the same pattern RFC 0002 used for every other trellis production, and spelled out explicitly (ordered first, matching `BasicTerm`) in each hyphence production it applies to — see "Lock Grammar," below.
+`MarklTerm` is **hyphence's own production**, defined normatively in `docs/rfcs/hyphence-content.peg`, and spelled out explicitly (ordered first) in each hyphence production it applies to — see "Lock Grammar," below.
 
-Term-initial `@` remains the `DigestTerm` sigil (`'@' Ident`, payload-only markl ids — `@blake2b256-…`, and the id-less `FieldRHS = DigestTerm` alternative, e.g. `_base=@blake2b256-…`); those are **unchanged by this RFC** and are not `MarklTerm` (no purpose slot, no join to disambiguate — `DigestTerm` is tried before `MarklTerm` in `BasicTerm` regardless). A purpose-full markl id like `md@blake2b256-…` or `piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-…` parses as one `MarklTerm` wherever hyphence content holds a locked value, with no hyphence-side grammar change required beyond retiring `Lock` (below). Resolution of the purpose portion (tag vs. reference vs. something else) is type-system-side, like every other identifier RFC 0002 §"The `/`-shape convention is deleted" already established — this RFC does not add a special case for purpose-full identifiers.
+> **Revised 2026-07-27 (ownership direction; [hyphence#11](https://code.linenisgreat.com/linenisgreat/hyphence/issues/11)).** This paragraph originally said hyphence "does not duplicate `MarklTerm`'s definition — it is cited by name, the same pattern RFC 0002 used for every other trellis production," treating trellis as the definition site. That direction was backwards: hyphence is upstream of cutting-garden, which imports hyphence's Go package. See RFC 0002 §Lexical foundation's revision note of the same date for the full correction and the piggy → hyphence → trellis chain.
+
+Term-initial `@` remains the `DigestTerm` sigil (`'@' Digest`, payload-only markl ids — `@blake2b256-…`, and the id-less `FieldRHS = DigestTerm` alternative, e.g. `_base=@blake2b256-…`); those are **unchanged by this RFC** and are not `MarklTerm` (no purpose slot, no join to disambiguate — `DigestTerm` is tried before `MarklTerm` in `BasicTerm` regardless). A purpose-full markl id like `md@blake2b256-…` or `piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-…` parses as one `MarklTerm` wherever hyphence content holds a locked value, with no hyphence-side grammar change required beyond retiring `Lock` (below). Resolution of the purpose portion (tag vs. reference vs. something else) is type-system-side, like every other identifier RFC 0002 §"The `/`-shape convention is deleted" already established — this RFC does not add a special case for purpose-full identifiers.
 
 **Purpose grammar expansion (piggy-side, not this RFC).** The ruling accepts expanding markl's purpose grammar to admit general identifiers (e.g. object-id-shaped purposes containing `/`), tracked as [linenisgreat/piggy#219](https://code.linenisgreat.com/linenisgreat/piggy/issues/219) — hyphence's content grammar is unaffected either way, since it admits whatever `MarklTerm`/`Ident` trellis admits regardless of what shape a purpose takes.
 
@@ -185,20 +191,25 @@ New vectors are **appended**, per RFC 0001 §Test Vectors' convention; per that 
 
 | Name | Outcome | Demonstrates |
 |---|---|---|
-| `atomic-lock-type` | `legacy/parse-ok` | `! md@blake2b256-abc` — canonical type-lock spelling (this RFC) |
+| `atomic-lock-type` | `legacy/parse-ok` | `! md@blake2b256-acd` — canonical type-lock spelling (this RFC) |
 | `atomic-lock-reference` | `document/parse-ok` | `- one/uno@blake2b256-def` — canonical reference-lock spelling |
-| `atomic-lock-typed-edge` | `document/parse-ok` | `- blocks=task/other@blake2b256-ghi` — canonical typed-edge lock spelling |
+| `atomic-lock-typed-edge` | `document/parse-ok` | `- blocks=task/other@blake2b256-ghj` — canonical typed-edge lock spelling |
 | `atomic-key-material-papi-shape` | `document/parse-ok` | `- piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-qqxyz` — the bare-value key-material shape that surfaced this RFC (linenisgreat/hyphence#6), verbatim per cutting-garden's own `0014-trellis.peg` conformance vector for the same identifier |
 | `quoted-purpose-marklterm` | `document/parse-ok` | `- "my thing"@blake2b256-xyz` — `MarklTerm`'s quoted-purpose-slot form; the digest sits outside the quotes, per "The MarklId lexeme" |
 | `spaced-field-emission` | `document/parse-ok` | `- due = "2026-08-01"` — the canonical *spaced* field-operator emission this RFC's revision standardizes for hyphence lines, per "Canonical emission: spacing" |
+| `marklterm-quoted-purpose-with-join-rune` | `document/parse-ok` | `- "a@b"@blake2b256-xyz` — a quoted purpose **containing** the join rune, per "The MarklId lexeme" item 3. The join is the second `@`, so this is the vector that catches a decoder splitting on the first. Added 2026-07-27 |
+| `digest-junk-non-blech32` | `grammar/reject` | `! md@blake2b256-9bt3` — MUST be rejected: `b` is outside the blech32 alphabet, so the strict `Digest` slot's `!IdentRune` anchor refuses it rather than accepting a truncated `9`. Parsed happily under the former `'@' Ident` slot, so this is what keeps the tightening from regressing. Added 2026-07-27 |
+
+> **The `grammar/reject` outcome (added 2026-07-27).** Every other outcome in the corpus asserts a *successful* parse, so a malformed-content vector had nowhere to live — added under any `parse-ok` outcome it would have failed the harness rather than pinning the rejection. `grammar/reject` means "the envelope MUST decode, but at least one content-governed line MUST NOT parse under `hyphence-content.peg` via a real content production." It is owned by the content-grammar harness; the envelope harnesses skip it under the vector file's own outcome-namespacing rule.
 
 ## See Also
 
 - `docs/rfcs/hyphence-content.peg` — the formal, langlang-validated companion grammar extracting this RFC's (and RFC 0002's) productions ([linenisgreat/hyphence#7](https://code.linenisgreat.com/linenisgreat/hyphence/issues/7)); validate with `just validate-grammar`.
 - `docs/rfcs/0002-content-grammar.md` — the RFC this document narrowly supersedes (Lock grammar section only).
 - `docs/rfcs/0001-hyphence.md` — the envelope RFC, unaffected.
-- madder `docs/rfcs/0002-markl-id-format.md` and `markl-id(7)` §STRUCTURE / §PURPOSE IDS — the normative MarklId lexeme this RFC cites by reference.
-- cutting-garden `docs/rfcs/0014-trellis.peg` — the `MarklTerm` production (and `BasicTerm`/`Value` ordering) this RFC's design depends on.
+- piggy `docs/rfcs/0011-markl-id-format.md` §2 / §3 (`code.linenisgreat.com/piggy/`) — the normative MarklId lexeme this RFC cites by reference, and the source of the `String`/`Char`/`Format`/`DataChar` productions hyphence's grammar imports. Formerly madder RFC 0002; moved and renumbered 2026-07-20.
+- `docs/rfcs/hyphence-content.peg` — this repo's normative content grammar, which OWNS `MarklTerm`, `DigestTerm`, and `Digest`. Exposed for downstream `@import` as the `.#hyphence-content-grammar` flake output.
+- cutting-garden `docs/rfcs/0014-trellis.peg` — the trellis grammar hyphence shares a lexical universe with. Note the direction: trellis is DOWNSTREAM of hyphence (cutting-garden imports hyphence's Go package), so trellis imports these productions rather than defining them. Earlier revisions of this RFC had that backwards; corrected 2026-07-27 (hyphence#11).
 - [linenisgreat/hyphence#6](https://code.linenisgreat.com/linenisgreat/hyphence/issues/6) — the issue and ruling this RFC implements.
 - [linenisgreat/piggy#219](https://code.linenisgreat.com/linenisgreat/piggy/issues/219) — the purpose-grammar expansion this RFC's design depends on being accepted (piggy-side, not blocking).
 - [linenisgreat/dodder#377](https://code.linenisgreat.com/linenisgreat/dodder/issues/377) — the field-residence design issue "Field residence" points to.
