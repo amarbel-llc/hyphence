@@ -584,6 +584,13 @@ impl ContentParser {
 
     /// `FieldName <- String / Ident` — a flat per-type field namespace, where a
     /// quoted field name is opaque.
+    ///
+    /// Its body is identical to `blob_content`'s today. That duplication is
+    /// deliberate, not an oversight to collapse: this file is organized so every
+    /// `.peg` rule has a same-named method, which is what lets a reader diff it
+    /// against the grammar rule by rule. These are two distinct rules governing
+    /// unrelated things (a field namespace vs. a blob path) that happen to
+    /// coincide, and either can diverge without the other.
     fn field_name(&mut self) -> bool {
         let save = self.pos;
         if self.string() {

@@ -567,6 +567,15 @@ func (p *contentParser) parseFieldContent() bool {
 
 // parseFieldName implements FieldName <- String / Ident — a flat per-type
 // field namespace, where a quoted field name is opaque.
+//
+// Its body is identical to parseBlobContent's today. That duplication is
+// deliberate, not an oversight to collapse: this file is organized so every
+// .peg rule has a same-named method, which is what lets a reader diff it
+// against the grammar rule by rule. These are two distinct rules governing
+// unrelated things (a field namespace vs. a blob path) that happen to
+// coincide, and either can diverge without the other. Ident/Bareword share
+// one scanner only because the grammar gives them the same body under two
+// names for readability, which is a different situation.
 func (p *contentParser) parseFieldName() bool {
 	save := p.pos
 	if p.parseString() {
