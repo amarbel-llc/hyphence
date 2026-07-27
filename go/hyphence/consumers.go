@@ -105,6 +105,26 @@ func (m *MetadataBuilder) ReadFrom(r io.Reader) (int64, error) {
 type MetadataValidator struct {
 	SawAtLine bool
 
+	// CheckContent additionally validates each line's CONTENT against
+	// the RFC 0002/0003 content grammar via ParseContent (hyphence#11).
+	//
+	// Opt-in, and deliberately off by default, because the two layers are
+	// separable: RFC 0001 envelope conformance (this consumer's default)
+	// admits any content a line can carry, while RFC 0002 governs what
+	// that content may say. RFC 0002's own scope boundary is that
+	// "existing decoders remain conforming", and three normative vectors
+	// (unified-lock-type, unified-lock-reference,
+	// deprecated-angle-still-accepted) carry RETIRED pre-RFC-0003
+	// spellings specifically to prove old documents still decode — they
+	// are envelope-valid but do NOT parse under the content grammar, and
+	// document_test.go's document/parse-ok harness drives them through
+	// this same consumer. Defaulting this on would fail exactly the
+	// backward compatibility those vectors exist to pin.
+	//
+	// `hyphence validate` sets it, because strict conformance is that
+	// subcommand's whole job.
+	CheckContent bool
+
 	line int // 1-based, internal
 }
 
@@ -144,6 +164,15 @@ func (m *MetadataValidator) ReadFrom(r io.Reader) (int64, error) {
 
 		if len(line) < 2 || line[1] != ' ' {
 			return n, errors.Errorf("line %d: %w: missing space after prefix", m.line, ErrMalformedMetadataLine)
+		}
+
+		// line[2:] matches MetadataBuilder's own `value := line[2:]`
+		// exactly — untrimmed — so both consumers hand ParseContent the
+		// same bytes and cannot disagree about a line.
+		if m.CheckContent {
+			if err := ParseContent(prefix, line[2:]); err != nil {
+				return n, errors.Errorf("line %d: %w", m.line, err)
+			}
 		}
 
 		if prefix == '@' {

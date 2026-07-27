@@ -4,7 +4,18 @@
 //! from madder's Go reference implementation). Every conforming implementation MUST
 //! agree with these outcomes; this harness runs all of them against `decode`.
 
-use crate::{Document, Error};
+use crate::{Document, Error, parse_content};
+
+/// Vectors that deliberately exercise the RETIRED, pre-RFC-0003 spaced-lock
+/// spelling (`Lock = SP DigestTerm`) to prove it still decodes at the envelope
+/// layer. They are envelope-valid but do NOT parse under the current content
+/// grammar, so the content cross-check below skips them — mirroring
+/// `vectorsExcludedFromGrammarCheck` in the Go harness.
+const RETIRED_SPELLING_VECTORS: [&str; 3] = [
+    "unified-lock-type",
+    "unified-lock-reference",
+    "deprecated-angle-still-accepted",
+];
 
 /// Decode standard base64 (RFC 4648 alphabet), ignoring `=` padding and ASCII
 /// whitespace. Zero-dependency; only needs to handle the vector file's payloads.
@@ -124,5 +135,90 @@ fn rfc_test_vectors() {
     assert!(
         ran >= 19,
         "expected to exercise at least the nineteen envelope RFC vectors, ran {ran}"
+    );
+}
+
+/// Runs the shared vector corpus through [`parse_content`] and asserts it reaches
+/// the same verdict the normative grammar does.
+///
+/// This is the lockstep gate for the Rust content parser. `rfc_test_vectors`
+/// above proves the ENVELOPE agrees across impls; the unit tables in `content.rs`
+/// prove hand-picked shapes. Neither would catch this parser and
+/// `docs/rfcs/hyphence-content.peg` disagreeing about a real vector — which is
+/// the drift that matters, since the `.peg` is normative and this parser is
+/// supposed to implement it. The Go side runs the identical check
+/// (`TestContentParserAgreesWithVectorCorpus`) plus a langlang cross-check
+/// against the `.peg` itself, which this crate cannot do (no langlang, no `.peg`
+/// path). Sharing one corpus is what transitively ties this parser to the
+/// grammar.
+#[test]
+fn content_grammar_vectors() {
+    let vectors = include_str!("../testdata/rfc_vectors.txt");
+    let mut checked = 0;
+
+    for raw in vectors.lines() {
+        let line = raw.trim_end_matches('\r');
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split('\t').collect();
+        let (name, input_b64, outcome) = (parts[0], parts[1], parts[2]);
+
+        if RETIRED_SPELLING_VECTORS.contains(&name) {
+            continue;
+        }
+
+        // Only outcomes whose document is known to DECODE can be content-checked,
+        // since the metadata lines have to be in hand first.
+        // `document/parse-error-inline-body-with-at` is excluded for that reason:
+        // Document::decode returns Err for it, so there are no lines to inspect.
+        // (The Go harness reaches those lines because its Reader/MetadataBuilder
+        // pipeline surfaces them before the cross-check fires.)
+        let expect_reject = match outcome {
+            "legacy/parse-ok" | "document/parse-ok" => false,
+            "grammar/reject" => true,
+            _ => continue,
+        };
+
+        let doc = Document::decode(&b64_decode(input_b64))
+            .unwrap_or_else(|e| panic!("{name}: expected the envelope to decode, got {e:?}"));
+
+        let mut saw_reject = false;
+
+        for line in &doc.metadata {
+            let result = parse_content(line.prefix, &line.value);
+
+            if expect_reject {
+                saw_reject |= result.is_err();
+                continue;
+            }
+
+            assert_eq!(
+                result,
+                Ok(()),
+                "{name}: parse_content rejected {:?}, but the vector conforms to \
+                 hyphence-content.peg — this parser disagrees with the normative grammar",
+                line.value
+            );
+        }
+
+        // "At least one" rather than "all": a negative vector may legitimately
+        // pair a well-formed line with an ill-formed one. Same semantics the Go
+        // harness uses for this outcome.
+        assert!(
+            !expect_reject || saw_reject,
+            "{name}: parse_content accepted every line, but the grammar/reject \
+             outcome asserts at least one must be refused"
+        );
+
+        checked += 1;
+    }
+
+    // Guards against the gating above silently excluding everything, which would
+    // make this test vacuously pass.
+    assert!(
+        checked > 0,
+        "no vectors were content-checked; the outcome gating has drifted from the corpus"
     );
 }

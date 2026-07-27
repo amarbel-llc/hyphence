@@ -74,6 +74,16 @@ debug-grammar-ast:
       -disable-builtins \
       -disable-spaces
 
+# Run a subset of the Go suite verbosely, so a single test's subtests are
+# visible. `just test-go` reports only per-package ok/FAIL, which cannot
+# distinguish "passed" from "never ran" — the failure mode a build tag typo or
+# a drifted table gate produces. Keeps -tags test so the conformance and
+# grammar harnesses are included.
+# Usage: just debug-test-go TestParseContent
+[group('debug')]
+debug-test-go pattern:
+    nix develop --command go -C go test -tags test -v -run '{{ pattern }}' ./...
+
 # Encode a hyphence document into the base64 input field used by
 # go/hyphence/testdata/rfc_vectors.txt (and its byte-identical rust/ twin).
 # Adding or amending a vector otherwise means hand-computing base64, which is

@@ -25,12 +25,22 @@
 //! self-contained; it is the Rust sibling of the Go implementation under
 //! `go/hyphence/` in this repo, and both are checked against the same RFC 0001
 //! conformance vectors.
+//!
+//! Line **content** is opaque to the envelope, but it does have a grammar (RFC
+//! 0002, as amended by RFC 0003), and [`parse_content`] checks a line against it —
+//! including the charset-strict markl-id digest slot, which refuses a payload
+//! outside the blech32 alphabet. It is deliberately separate from decoding: RFC
+//! 0002's scope boundary is that existing decoders remain conforming, so
+//! [`Document::decode`] still accepts content this function rejects. Callers
+//! wanting content strictness opt in.
 
+mod content;
 mod decode;
 mod document;
 mod encode;
 mod error;
 
+pub use content::{ContentError, parse_content};
 pub use document::{Document, MetadataLine, Prefix};
 pub use error::Error;
 

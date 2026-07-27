@@ -41,6 +41,29 @@ function validate_rejects_inline_body_with_at { # @test
   assert_line --partial "blob reference '@' line forbidden"
 }
 
+function validate_rejects_non_blech32_digest { # @test
+  # hyphence#11: validate checks each line's content against the RFC
+  # 0002/0003 content grammar, whose digest slot is charset-strict. 'b' is
+  # outside the blech32 alphabet, so this payload is refused — under the
+  # former permissive digest slot it passed.
+  local f="$BATS_TEST_TMPDIR/bad-digest.hyphence"
+  printf -- '---\n! md@blake2b256-9bt3\n---\n' >"$f"
+  run_hyphence validate "$f"
+  assert_failure
+  assert_line --partial 'outside the blech32 alphabet'
+}
+
+function validate_accepts_blech32_digest { # @test
+  # The positive twin: the same markl-term shape with an in-alphabet
+  # payload passes, so the check rejects the charset violation and not the
+  # shape itself.
+  local f="$BATS_TEST_TMPDIR/good-digest.hyphence"
+  printf -- '---\n! md@blake2b256-9ft3x\n---\n' >"$f"
+  run_hyphence validate "$f"
+  assert_success
+  assert_output ''
+}
+
 function validate_reads_stdin_with_dash { # @test
   local f="$BATS_TEST_TMPDIR/in.hyphence"
   printf -- '---\n! md\n---\n' >"$f"
