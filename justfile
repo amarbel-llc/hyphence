@@ -118,7 +118,7 @@ debug-vector-encode doc:
 debug-vector-decode b64:
     @printf '%s' '{{ b64 }}' | base64 -d | cat -A
 
-# Vet the Go sources — the cheap static-analysis pass.
+# vet the Go sources — the cheap static-analysis pass
 [group('pre-build')]
 lint-go:
     nix develop --command go -C go vet ./...
@@ -149,12 +149,12 @@ codemod-fmt:
 [group('maintenance')]
 update: update-go update-nix
 
-# Tidy go/go.mod + go/go.sum, then regenerate go/gomod2nix.toml to match.
+# tidy go/go.mod + go/go.sum, then regenerate go/gomod2nix.toml to match
 [group('maintenance')]
 update-go: && build-gomod2nix
     nix develop --command go -C go mod tidy
 
-# Update all flake inputs (flake.lock).
+# update all flake inputs (flake.lock)
 [group('maintenance')]
 update-nix:
     nix flake update
