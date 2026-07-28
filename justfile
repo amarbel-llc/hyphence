@@ -77,6 +77,8 @@ test-grammar-vectors:
 # e.g. to confirm the `@import` of piggy's String/Char/Format/DataChar resolved
 # rather than being silently dropped, or to check whether -disable-spaces really
 # suppressed the whitespace injector. Pipe to grep/rg to inspect a single rule.
+#
+# dump the compiled grammar AST for docs/rfcs/hyphence-content.peg
 [group('debug')]
 debug-grammar-ast:
     #!/usr/bin/env bash
@@ -94,6 +96,8 @@ debug-grammar-ast:
 # a drifted table gate produces. Keeps -tags test so the conformance and
 # grammar harnesses are included.
 # Usage: just debug-test-go TestParseContent
+#
+# run a subset of the Go suite verbosely, with each subtest visible
 [group('debug')]
 debug-test-go pattern:
     nix develop --command go -C go test -tags test -v -run '{{ pattern }}' ./...
@@ -105,6 +109,8 @@ debug-test-go pattern:
 # the argument can be copied straight from the "Plain-text view" comments the
 # vectors file keeps beside each block.
 # Usage: just debug-vector-encode '---\n! md@blake2b256-acd\n---\n'
+#
+# encode a document into the base64 input field used by the vectors files
 [group('debug')]
 debug-vector-encode doc:
     @printf '%b' '{{ doc }}' | base64 -w0
@@ -114,6 +120,8 @@ debug-vector-encode doc:
 # a vector line can be read (and its "Plain-text view" comment checked for
 # drift) without mental base64. Line ends show as `$` via `cat -A`.
 # Usage: just debug-vector-decode LS0tCiEgbWQKLS0tCg==
+#
+# decode a vectors-file base64 input field back to plain text
 [group('debug')]
 debug-vector-decode b64:
     @printf '%s' '{{ b64 }}' | base64 -d | cat -A
