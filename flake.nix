@@ -83,10 +83,6 @@
       inputs.tap.inputs.gomod2nix.follows = "purse-first/gomod2nix";
       inputs.tap.inputs.treefmt-nix.follows = "igloo/treefmt-nix";
     };
-    langlang.inputs.conformist.inputs.igloo.inputs.bun2nix.follows = "igloo/bun2nix";
-    langlang.inputs.conformist.inputs.igloo.inputs.flake-parts.follows = "igloo/flake-parts";
-    langlang.inputs.conformist.inputs.igloo.inputs.systems.follows = "igloo/systems";
-    langlang.inputs.conformist.inputs.igloo.inputs.treefmt-nix.follows = "igloo/treefmt-nix";
     langlang.inputs.conformist.follows = "conformist";
 
     # piggy: a GRAMMAR-ONLY input (hyphence#11). hyphence's Go and Rust
