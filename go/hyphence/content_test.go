@@ -49,6 +49,11 @@ func TestParseContent_Accepts(t *testing.T) {
 		// positive case.
 		{"dash/interior-sigil-is-ident", '-', "caldav:fastmail"},
 
+		// '(' and ')' are reserved (2026-08-30, hyphence RFC 0002 revision
+		// — trellis META QUALIFIER terms, cutting-garden native-tags G10),
+		// so parens in a value must be quoted.
+		{"dash/quoted-parens-in-value", '-', `tag="c(1)"`},
+
 		// '<' is a deprecated synonym of '-' with identical content
 		// grammar.
 		{"angle/field-predicate", '<', "blocks=other/task@blake2b256-def"},
@@ -107,6 +112,10 @@ func TestParseContent_Rejects(t *testing.T) {
 
 		// A reserved rune cannot appear unquoted in a term.
 		{"dash/reserved-rune-unquoted", '-', "a,b"},
+
+		// '(' is now reserved (2026-08-30): a bare identifier containing
+		// it no longer parses as one Ident.
+		{"dash/bare-open-paren", '-', "tag(1)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ParseContent(tc.prefix, tc.content)

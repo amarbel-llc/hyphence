@@ -7,7 +7,9 @@ revised: 2026-07-18 (add trailing line comments on structured metadata
   annotation of dodder repo/workspace/type configs); 2026-07-20 (the
   required space before a trailing comment's `%` is dropped — SP is now
   optional, not required; glued comments like `md%draft, not stable`
-  parse the same as spaced ones)
+  parse the same as spaced ones); 2026-08-30 (add `(` and `)` to
+  `Reserved` — trellis META QUALIFIER terms, cutting-garden native-tags
+  G10; a bare identifier containing parens now requires quoting)
 superseded-in-part: 2026-07-18, §Lock grammar only, by RFC 0003
   (docs/rfcs/0003-markl-atomic-locks.md) — the `Lock = SP DigestTerm`
   production and every place it is used are replaced by atomic
@@ -70,6 +72,8 @@ Productions this grammar defines (see `docs/rfcs/hyphence-content.peg` for the n
 > Charset-strict but **length-agnostic**: a full digest and an abbreviated prefix (`blake2b256-9ft3x`) differ only in `DataChar` count. Length and checksum completeness remain semantic (decoder) concerns per piggy RFC 0011 §4.1 — a PEG cannot compute a BCH checksum. The trailing `!IdentRune` anchor is hyphence's own composition over those primitives: it rejects junk a bare `DataChar+` would leave as unconsumed trailing garbage, so `blake2b256-9bt3` fails because `b` is an `IdentRune` sitting immediately after the `9` `DataChar` run rather than being silently accepted as a truncated `9`.
 >
 > This is a **behavior change**: malformed digests that previously parsed are now rejected. Per "Existing decoders remain conforming" above, it binds only decoders that implement content-grammar validation — envelope-only decoders are unaffected, and both reference implementations keep their decode paths envelope-only, surfacing the strict check through `hyphence validate` instead.
+
+> **Revised 2026-08-30 (`(` and `)` become Reserved; cutting-garden native-tags slice 0, decision G10).** `Reserved` gains two members: `[\[\]^=,!@<>*$~%#"'()]`. This is upstream plumbing for trellis (cutting-garden RFC 0014), not a hyphence-native feature: trellis's native-tags work defines a parenthetical `(…)` as a **META QUALIFIER** term (`date_due=(month)`, `(tags)`), and a qualifier term can only be recognized if `(`/`)` are self-delimiting at the content-grammar layer the way every other reserved rune is — otherwise `date_due=(month)` lexes as one bareword value `(month)`, with the parens silently swallowed as ordinary identifier content. hyphence does **not** define what a qualifier is or means; it only reserves the two runes so a downstream grammar can. This is a **behavior change**: a bare identifier/bareword/field-name containing `(` or `)` no longer parses (`tag(1)` is rejected; the quoted form `tag="c(1)"` still parses, since `String` consumes `(`/`)` as ordinary content). No existing RFC 0002/0003 vector used a bare paren, so this closes cleanly with no vector reinterpretation.
 
 Hyphence line content is restricted to the **ground fragment** of trellis — what RFC 0014 §Isometry calls **espalier**: a data instance is "a query that matches exactly itself" (`=`-semantics only, no other operators, no value lists, no sigils, no closures). A metadata line asserts a fact about one object; it is not a query. Consequently, in content position:
 
@@ -294,6 +298,13 @@ A seventh vector, `trailing-comment-glued`, is appended by the 2026-07-20 revisi
 | Name | Outcome | Demonstrates |
 |---|---|---|
 | `trailing-comment-glued` | `legacy/parse-ok` | `! md%glued comment` — a trailing comment with NO space before `%`, the glued spelling the 2026-07-20 revision admits alongside the pre-existing spaced form |
+
+Two vectors are appended by the 2026-08-30 revision (`(` and `)` added to `Reserved`), pinning both directions of the resulting behavior change:
+
+| Name | Outcome | Demonstrates |
+|---|---|---|
+| `bare-paren-in-ident` | `grammar/reject` | `- tag(1)` — a bare identifier containing `(` no longer parses as one `Ident`; envelope decode still succeeds (content-grammar-invalid, not envelope-invalid) |
+| `quoted-paren-in-value` | `document/parse-ok` | `- tag="c(1)"` — the escape hatch: the same payload quoted still parses, since `String` consumes `(`/`)` as ordinary content |
 
 `legacy/parse-ok`'s decoder (`TypedMetadataCoderDefault`, `go/hyphence/coder_metadata.go`) only wires the `!` and `@` prefixes, so it can't exercise the `-`/`<` forms — those needed the six-prefix decoder instead. `document/*` (the `Reader` + `MetadataValidator` harness in `go/hyphence/document_test.go`) already accepts all six prefixes but had no `parse-ok` outcome; a `document/parse-ok` case (decode via `Reader`+`MetadataValidator`, assert success) was added alongside these vectors.
 

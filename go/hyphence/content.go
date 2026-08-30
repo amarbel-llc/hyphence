@@ -135,11 +135,14 @@ func ParseContent(prefix byte, content string) error {
 // contentReservedRunes are the literal (non-sigil) members of
 // hyphence-content.peg's
 //
-//	Reserved <- [\[\]^=,!@<>*$~%#"'] / SigilRune
+//	Reserved <- [\[\]^=,!@<>*$~%#"'()] / SigilRune
 //
 // Sigil runes are handled separately by isContentSigilRune wherever
 // Reserved is consulted (see isContentIdentRuneAt), so this set omits them.
-const contentReservedRunes = "[]^=,!@<>*$~%#\"'"
+// '(' and ')' were added 2026-08-30 so a parenthetical is self-delimiting,
+// the precondition for trellis (cutting-garden RFC 0014) to define `(…)`
+// as a META QUALIFIER term (cutting-garden native-tags G10).
+const contentReservedRunes = "[]^=,!@<>*$~%#\"'()"
 
 func isContentReservedRune(r rune) bool {
 	return strings.ContainsRune(contentReservedRunes, r)

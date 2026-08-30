@@ -157,6 +157,27 @@ function validate_rejects_crlf_in_metadata { # @test
   assert_line --partial 'expected "---" but got "---\r"'
 }
 
+function validate_rejects_bare_paren_in_ident { # @test
+  # RFC 0002 revised 2026-08-30: '(' and ')' are Reserved (trellis META
+  # QUALIFIER terms, cutting-garden native-tags G10), so a bare identifier
+  # containing one no longer parses.
+  local f="$BATS_TEST_TMPDIR/bare-paren.hyphence"
+  printf -- '---\n! task\n- tag(1)\n---\n' >"$f"
+  run_hyphence validate "$f"
+  assert_failure
+  assert_line --partial 'malformed "-" line content'
+}
+
+function validate_accepts_quoted_paren_in_value { # @test
+  # The escape hatch for the same rune reservation: quoting still admits
+  # '(' as ordinary content.
+  local f="$BATS_TEST_TMPDIR/quoted-paren.hyphence"
+  printf -- '---\n! task\n- tag="c(1)"\n---\n' >"$f"
+  run_hyphence validate "$f"
+  assert_success
+  assert_output ''
+}
+
 function format_anchors_leading_comment { # @test
   # Comments preceding a non-comment metadata line travel with that
   # line through canonicalization.

@@ -163,3 +163,19 @@ spaced-field-emission	LS0tCiEgdGFzawotIGR1ZSA9ICIyMDI2LTA4LTAxIgotLS0K	document/
 
 marklterm-quoted-purpose-with-join-rune	LS0tCiEgdGFzawotICJhQGIiQGJsYWtlMmIyNTYteHl6Ci0tLQo=	document/parse-ok	-
 digest-junk-non-blech32	LS0tCiEgbWRAYmxha2UyYjI1Ni05YnQzCi0tLQo=	grammar/reject	-
+
+# hyphence RFC 0002 revision (2026-08-30): '(' and ')' become Reserved
+# runes so a parenthetical is self-delimiting, the precondition for
+# trellis (cutting-garden RFC 0014) to define `(…)` as a META QUALIFIER
+# term (cutting-garden native-tags G10). bare-paren-in-ident pins the
+# consequence: a bare identifier containing '(' no longer parses as one
+# Ident (DashContent's FieldContent alternative fails for want of '=',
+# and RefContent's Ident+EOF fails on the unconsumed "(1)"). The quoted
+# twin shows the escape hatch: the same payload inside a quoted field
+# value still parses, since String consumes '(' as ordinary content.
+# Plain-text view:
+#   bare-paren-in-ident    : "---\n! task\n- tag(1)\n---\n"
+#   quoted-paren-in-value  : "---\n! task\n- tag=\"c(1)\"\n---\n"
+
+bare-paren-in-ident	LS0tCiEgdGFzawotIHRhZygxKQotLS0K	grammar/reject	-
+quoted-paren-in-value	LS0tCiEgdGFzawotIHRhZz0iYygxKSIKLS0tCg==	document/parse-ok	-

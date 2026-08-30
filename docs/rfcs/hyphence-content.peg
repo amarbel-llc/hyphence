@@ -250,7 +250,16 @@ LF <- '\n'
 // identifier-interior unless term-final (the strict sigil rule).
 Ident        <- IdentRune+
 IdentRune    <- '-' / '/' / (SigilRune &IdentRune) / (!Reserved !SP1 .)
-Reserved     <- [\[\]^=,!@<>*$~%#"'] / SigilRune
+// `(` and `)` were added 2026-08-30 (hyphence RFC 0002 revision) so a
+// parenthetical is self-delimiting at the content-grammar layer, the
+// precondition for trellis (cutting-garden RFC 0014) to define `(…)`
+// as a META QUALIFIER term (`date_due=(month)`, `(tags)` — decision
+// G10 of cutting-garden's native-tags design). hyphence does not
+// define what a qualifier IS — that stays trellis's production — it
+// only reserves the two runes so trellis can. Consequence: an
+// identifier containing `(` or `)` must now be quoted (`"c(1)"`); a
+// bare `c(1)` no longer parses as one Ident.
+Reserved     <- [\[\]^=,!@<>*$~%#"'()] / SigilRune
 SigilRune    <- [:+.?]
 
 // String and Char — the doddish quoting rules — are NOT defined here:

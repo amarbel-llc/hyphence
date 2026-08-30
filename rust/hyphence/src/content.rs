@@ -126,11 +126,14 @@ pub fn parse_content(prefix: Prefix, content: &str) -> Result<(), ContentError> 
 // ---- rune classes ---------------------------------------------------------
 
 /// The literal (non-sigil) members of the grammar's
-/// `Reserved <- [\[\]^=,!@<>*$~%#"'] / SigilRune`.
+/// `Reserved <- [\[\]^=,!@<>*$~%#"'()] / SigilRune`.
 ///
 /// Sigil runes are handled separately by [`is_sigil_rune`] wherever `Reserved` is
-/// consulted (see [`is_ident_rune_at`]), so this set omits them.
-const RESERVED_RUNES: &str = "[]^=,!@<>*$~%#\"'";
+/// consulted (see [`is_ident_rune_at`]), so this set omits them. `(` and `)` were
+/// added 2026-08-30 so a parenthetical is self-delimiting, the precondition for
+/// trellis (cutting-garden RFC 0014) to define `(…)` as a META QUALIFIER term
+/// (cutting-garden native-tags G10).
+const RESERVED_RUNES: &str = "[]^=,!@<>*$~%#\"'()";
 
 fn is_reserved_rune(c: char) -> bool {
     RESERVED_RUNES.contains(c)
@@ -749,6 +752,14 @@ mod tests {
                 Prefix::TagRef,
                 "caldav:fastmail",
             ),
+            // '(' and ')' are reserved (2026-08-30, hyphence RFC 0002
+            // revision — trellis META QUALIFIER terms, cutting-garden
+            // native-tags G10), so parens in a value must be quoted.
+            (
+                "dash/quoted-parens-in-value",
+                Prefix::TagRef,
+                r#"tag="c(1)""#,
+            ),
             (
                 "angle/field-predicate",
                 Prefix::ObjectRef,
@@ -807,6 +818,9 @@ mod tests {
             // unconsumed trailing input.
             ("dash/unquoted-space", Prefix::TagRef, "foo bar"),
             ("dash/reserved-rune-unquoted", Prefix::TagRef, "a,b"),
+            // '(' is now reserved (2026-08-30): a bare identifier
+            // containing it no longer parses as one Ident.
+            ("dash/bare-open-paren", Prefix::TagRef, "tag(1)"),
         ] {
             let got = parse_content(prefix, content);
             let err = got.expect_err(name);
