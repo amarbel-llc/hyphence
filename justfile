@@ -90,6 +90,34 @@ debug-grammar-ast:
       -disable-builtins \
       -disable-spaces
 
+# Build the CLI package and check every rendered man page's NAME section against
+# the fleet rule spinclass's system-prompt index depends on: the roff NAME body
+# must be ONE physical line and its `name - description` (per lexgrog) must be
+# <= 72 characters. pandoc re-wraps roff at 72 columns unless told not to, which
+# silently splits NAME across two lines — the index then shows a truncated
+# description. Exits non-zero on any violation.
+#
+# check every rendered man page's NAME line is single-line and <= 72 chars
+[group('debug')]
+debug-man-name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=$(nix build --no-link --print-out-paths '.#hyphence')
+    rc=0
+    for page in "$out"/share/man/man*/*; do
+      name_lines=$(zcat -f "$page" | awk '/^\.SH NAME/{f=1;next} /^\.SH/{f=0} f')
+      count=$(printf '%s\n' "$name_lines" | grep -c .)
+      whatis=$(lexgrog "$page" | sed 's/^[^:]*: "//; s/"$//')
+      len=${#whatis}
+      printf '%s\n  NAME roff:\n%s\n  lexgrog: %s (%d chars)\n' \
+        "$page" "$(printf '%s\n' "$name_lines" | sed 's/^/    /')" "$whatis" "$len"
+      if [[ "$count" -ne 1 || "$len" -gt 72 ]]; then
+        echo "  VIOLATION" >&2
+        rc=1
+      fi
+    done
+    exit $rc
+
 # Run a subset of the Go suite verbosely, so a single test's subtests are
 # visible. `just test-go` reports only per-package ok/FAIL, which cannot
 # distinguish "passed" from "never ran" — the failure mode a build tag typo or

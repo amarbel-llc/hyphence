@@ -155,6 +155,9 @@ let
   # postInstall renders docs/man.{7,1}/*.md to roff man pages via pandoc (each
   # man page's YAML frontmatter supplies the title), so `man hyphence` (7,
   # the format) and `man 1 hyphence` (the CLI) both work after install.
+  # --wrap=none: pandoc otherwise re-wraps roff at 72 columns, which splits
+  # the NAME line across two physical lines; spinclass's system-prompt index
+  # reads only the first, truncating the description mid-sentence.
   hyphence = pkgs.buildGoApplication {
     pname = "hyphence";
     inherit version goFlakeInputs;
@@ -174,14 +177,14 @@ let
         mkdir -p $out/share/man/man7
         for f in ${man7Src}/*.md; do
           name="$(basename "$f" .md)"
-          pandoc -s -t man "$f" -o "$out/share/man/man7/$name.7"
+          pandoc -s --wrap=none -t man "$f" -o "$out/share/man/man7/$name.7"
         done
       ''}
       ${pkgs-master.lib.optionalString (man1Src != null) ''
         mkdir -p $out/share/man/man1
         for f in ${man1Src}/*.md; do
           name="$(basename "$f" .md)"
-          pandoc -s -t man "$f" -o "$out/share/man/man1/$name.1"
+          pandoc -s --wrap=none -t man "$f" -o "$out/share/man/man1/$name.1"
         done
       ''}
     '';

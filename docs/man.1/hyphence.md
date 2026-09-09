@@ -7,8 +7,7 @@ title: HYPHENCE(1) Hyphence \| General Commands Manual
 
 # NAME
 
-hyphence - format-only inspection and re-emission of on-disk hyphence
-documents
+hyphence - inspect and re-emit hyphen-fence documents, format only
 
 # SYNOPSIS
 
