@@ -12,7 +12,7 @@
 
     # SHA-pinned upstream anchor (Hydra-blessed, cache.nixos.org-served).
     # Sourced as pkgs-master in go/default.nix for go_1_26 + shell tools.
-    nixpkgs-master.url = "github:NixOS/nixpkgs/e94cb152ed51bd6e24eb4a41f1460252beb52cd2";
+    nixpkgs-master.url = "github:NixOS/nixpkgs/7a0f122f5090cf4c2ade2a13a0e229d4e19ba71f";
 
     utils = {
       url = "https://flakehub.com/f/numtide/flake-utils/0.1.102";
