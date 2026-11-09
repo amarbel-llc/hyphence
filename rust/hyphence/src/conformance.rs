@@ -4,7 +4,7 @@
 //! from madder's Go reference implementation). Every conforming implementation MUST
 //! agree with these outcomes; this harness runs all of them against `decode`.
 
-use crate::{Document, Error, parse_content};
+use crate::{Document, Error, Head, parse_content};
 
 /// Vectors that deliberately exercise the RETIRED, pre-RFC-0003 spaced-lock
 /// spelling (`Lock = SP DigestTerm`) to prove it still decodes at the envelope
@@ -194,7 +194,8 @@ fn content_grammar_vectors() {
         let expect_reject = match outcome {
             "legacy/parse-ok"
             | "document/parse-ok"
-            | "document/parse-error-inline-body-with-at" => false,
+            | "document/parse-error-inline-body-with-at"
+            | "head/canonical" => false,
             "grammar/reject" => true,
             _ => continue,
         };
@@ -239,4 +240,52 @@ fn content_grammar_vectors() {
         checked > 0,
         "no vectors were content-checked; the outcome gating has drifted from the corpus"
     );
+}
+
+/// Runs every `head/canonical` vector through the typed head: decode, encode
+/// canonically, compare with the expected bytes, then re-encode those bytes to
+/// prove the canonical form is a fixed point. Go's
+/// `TestHeadCanonicalVectors` runs the identical check, which is what makes
+/// the two encoders agree byte for byte.
+#[test]
+fn head_canonical_vectors() {
+    let vectors = include_str!("../testdata/rfc_vectors.txt");
+    let mut checked = 0;
+
+    for raw in vectors.lines() {
+        let line = raw.trim_end_matches('\r');
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split('\t').collect();
+        let (name, input_b64, outcome, expected_b64) = (parts[0], parts[1], parts[2], parts[3]);
+
+        if outcome != "head/canonical" {
+            continue;
+        }
+
+        let expected = b64_decode(expected_b64);
+
+        for (label, input) in [
+            ("input", b64_decode(input_b64)),
+            ("expected", expected.clone()),
+        ] {
+            let (head, body) = Head::decode(&input)
+                .unwrap_or_else(|e| panic!("{name}: {label} did not decode as a typed head: {e}"));
+            let got = head
+                .encode(body.as_deref())
+                .unwrap_or_else(|e| panic!("{name}: {label} did not encode: {e}"));
+
+            assert_eq!(
+                String::from_utf8_lossy(&got),
+                String::from_utf8_lossy(&expected),
+                "{name}: canonical encoding of the {label} differs"
+            );
+        }
+
+        checked += 1;
+    }
+
+    assert!(checked > 0, "no head/canonical vectors were checked");
 }

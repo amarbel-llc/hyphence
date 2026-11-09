@@ -1,11 +1,12 @@
 //! The RFC 0002/0003 content grammar — the Rust mirror of
 //! `docs/rfcs/hyphence-content.peg` and of `go/hyphence/content.go`.
 //!
-//! This is a RECOGNIZER: it decides whether a metadata line's content is
-//! well-formed under the production its [`Prefix`] selects, and reports where and
-//! why when it is not. It deliberately builds no syntax tree — no caller needs
-//! one yet, and an unused AST would be two more surfaces (here and in Go) to keep
-//! in lockstep for nothing. Adding one later is additive.
+//! It decides whether a metadata line's content is well-formed under the
+//! production its [`Prefix`] selects, reports where and why when it is not, and
+//! — for the typed head model in [`crate::head`] — returns what it parsed. There
+//! is ONE parser: [`parse_content`] is the typed parse with its result
+//! discarded, so the recognizer and the typed reader cannot disagree about a
+//! line.
 //!
 //! # Scope
 //!
@@ -39,6 +40,7 @@
 //! line "succeed" and defeat the point.
 
 use crate::document::Prefix;
+use crate::head::{Digest, Line, MarklId, Value};
 use std::fmt;
 
 /// Content that does not parse under the production its metadata-line prefix
@@ -89,38 +91,102 @@ impl std::error::Error for ContentError {}
 ///
 /// Returns [`ContentError`] with the offset and reason of the farthest failure.
 pub fn parse_content(prefix: Prefix, content: &str) -> Result<(), ContentError> {
+    parse_line(prefix, content).map(|_| ())
+}
+
+/// One metadata line's content, parsed: the typed line plus its trailing
+/// comment, if any. `None` for a `%` comment line, which carries no typed
+/// content of its own.
+pub(crate) type ParsedLine = Option<(Line, Option<String>)>;
+
+/// The typed parse behind [`parse_content`] and [`crate::Head::from_document`].
+pub(crate) fn parse_line(prefix: Prefix, content: &str) -> Result<ParsedLine, ContentError> {
     let mut p = ContentParser::new(content);
 
-    match prefix {
+    let parsed = match prefix {
         // FreeText / OpaqueComment: unconditional within one line.
-        Prefix::Description | Prefix::Comment => {
+        Prefix::Description => Some((Line::Description(p.free_text()), None)),
+        Prefix::Comment => {
             p.free_text();
+            None
         }
         Prefix::Type => {
-            if !p.type_content() {
+            let Some(line) = p.type_content() else {
                 return Err(p.error(prefix, "expected a type identifier or a markl id"));
-            }
-            p.trailing_comment_opt();
+            };
+            Some((line, p.trailing_comment_opt()))
         }
         Prefix::Blob => {
-            if !p.blob_content() {
+            let Some(blob) = p.blob_content() else {
                 return Err(p.error(prefix, "expected a blob reference: a markl id or a path"));
-            }
-            p.trailing_comment_opt();
+            };
+            Some((Line::Blob(blob), p.trailing_comment_opt()))
         }
         Prefix::TagRef | Prefix::ObjectRef => {
-            if !p.dash_content() {
+            let Some(line) = p.dash_content() else {
                 return Err(p.error(prefix, "expected a field predicate or a reference term"));
-            }
-            p.trailing_comment_opt();
+            };
+            Some((line, p.trailing_comment_opt()))
         }
-    }
+    };
 
     if !p.at_eof() {
         return Err(p.error(prefix, "unexpected trailing content"));
     }
 
-    Ok(())
+    Ok(parsed)
+}
+
+/// Whether `s` is expressible unquoted as an `Ident` (equally a `Bareword` or a
+/// bare `FieldName`): non-empty, and every char consumed as identifier content
+/// under the strict sigil rule. The canonical encoder writes a text bare exactly
+/// when this holds.
+pub(crate) fn is_bare_ident(s: &str) -> bool {
+    let chars: Vec<char> = s.chars().collect();
+    !chars.is_empty() && (0..chars.len()).all(|i| is_ident_rune_at(&chars, i))
+}
+
+/// Whether `format` and `data` form a well-formed `Digest` slot: a non-empty
+/// `Format` run, and a non-empty `DataChar` run (charset-strict,
+/// length-agnostic).
+pub(crate) fn is_digest_parts(format: &str, data: &str) -> bool {
+    !format.is_empty()
+        && format.chars().all(is_format_char)
+        && !data.is_empty()
+        && data.chars().all(is_data_char)
+}
+
+/// The Doddish unescape rules piggy-markl applies to a quoted slot: `\n \t \r
+/// \a \b \f \v` name their control characters, and any other escaped char
+/// stands for itself (which is what makes `\"` and `\\` work).
+fn unescape(interior: &[char]) -> String {
+    let mut out = String::with_capacity(interior.len());
+    let mut chars = interior.iter();
+
+    while let Some(&c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+
+        let Some(&escaped) = chars.next() else {
+            out.push('\\');
+            break;
+        };
+
+        out.push(match escaped {
+            'n' => '\n',
+            't' => '\t',
+            'r' => '\r',
+            'a' => '\u{7}',
+            'b' => '\u{8}',
+            'f' => '\u{c}',
+            'v' => '\u{b}',
+            other => other,
+        });
+    }
+
+    out
 }
 
 // ---- rune classes ---------------------------------------------------------
@@ -307,7 +373,7 @@ impl ContentParser {
 
     /// `Ident <- IdentRune+`, and equally `Bareword <- IdentRune+`: the two rules
     /// have identical bodies under different names, so one scanner serves both.
-    fn ident_text(&mut self) -> bool {
+    fn ident_text(&mut self) -> Option<String> {
         let start = self.pos;
         while is_ident_rune_at(&self.src, self.pos) {
             self.pos += 1;
@@ -315,10 +381,10 @@ impl ContentParser {
 
         if self.pos == start {
             self.fail("expected an identifier");
-            return false;
+            return None;
         }
 
-        true
+        Some(self.src[start..self.pos].iter().collect())
     }
 
     /// The imported piggy rules
@@ -331,32 +397,36 @@ impl ContentParser {
     /// A backslash consumes the following char, so an escaped quote does not
     /// close the string. A trailing lone backslash is consumed by `Char`'s second
     /// alternative and then fails on the missing close quote, matching the PEG.
-    fn string(&mut self) -> bool {
+    ///
+    /// Returns the UNESCAPED interior (see [`unescape`]).
+    fn string(&mut self) -> Option<String> {
         let save = self.pos;
 
         let Some(&quote) = self.src.get(self.pos) else {
             self.fail("expected a quoted string");
-            return false;
+            return None;
         };
 
         if quote != '"' && quote != '\'' {
             self.fail("expected a quoted string");
-            return false;
+            return None;
         }
 
         self.pos += 1;
+        let interior_start = self.pos;
 
         loop {
             let Some(&c) = self.src.get(self.pos) else {
                 self.pos = save;
                 self.fail("unterminated quoted string");
 
-                return false;
+                return None;
             };
 
             if c == quote {
+                let interior = unescape(&self.src[interior_start..self.pos]);
                 self.pos += 1;
-                return true;
+                return Some(interior);
             }
 
             if c == '\\' && self.pos + 1 < self.src.len() {
@@ -383,7 +453,7 @@ impl ContentParser {
     /// outside blech32 and therefore an `IdentRune` sitting immediately after the
     /// `9` `DataChar` run, so this refuses rather than silently accepting a
     /// truncated `9`.
-    fn digest(&mut self) -> bool {
+    fn digest(&mut self) -> Option<Digest> {
         let save = self.pos;
 
         let format_start = self.pos;
@@ -395,14 +465,16 @@ impl ContentParser {
             self.pos = save;
             self.fail("expected a markl-id format");
 
-            return false;
+            return None;
         }
+
+        let format_end = self.pos;
 
         if !self.at('-') {
             self.pos = save;
             self.fail("expected '-' between a markl id's format and data");
 
-            return false;
+            return None;
         }
 
         self.pos += 1;
@@ -416,37 +488,40 @@ impl ContentParser {
             self.pos = save;
             self.fail("expected markl-id digest data in the blech32 alphabet");
 
-            return false;
+            return None;
         }
 
         if is_ident_rune_at(&self.src, self.pos) {
             self.pos = save;
             self.fail("markl-id digest data contains a character outside the blech32 alphabet");
 
-            return false;
+            return None;
         }
 
-        true
+        Some(Digest::from_checked_parts(
+            self.src[format_start..format_end].iter().collect(),
+            self.src[data_start..self.pos].iter().collect(),
+        ))
     }
 
     /// `DigestTerm <- '@' Digest` — blob identity, content-addressed exact
     /// match, with a term-initial `@`.
-    fn digest_term(&mut self) -> bool {
+    fn digest_term(&mut self) -> Option<Digest> {
         let save = self.pos;
 
         if !self.at('@') {
             self.fail("expected '@' introducing a digest term");
-            return false;
+            return None;
         }
 
         self.pos += 1;
 
-        if !self.digest() {
+        let digest = self.digest();
+        if digest.is_none() {
             self.pos = save;
-            return false;
         }
 
-        true
+        digest
     }
 
     /// `MarklTerm <- (String / Ident) '@' Digest` — one atomic two-slot
@@ -458,46 +533,61 @@ impl ContentParser {
     /// quote-aware scan piggy RFC 0011 §2.2 requires — locating the join with the
     /// FIRST `@` would split this id wrongly, and it is the single most
     /// divergence-prone point across the implementations.
-    fn markl_term(&mut self) -> bool {
+    fn markl_term(&mut self) -> Option<MarklId> {
         let save = self.pos;
 
-        if !self.string() {
-            self.pos = save;
-            if !self.ident_text() {
+        let purpose = match self.string() {
+            Some(purpose) => purpose,
+            None => {
                 self.pos = save;
-                return false;
+                let Some(purpose) = self.ident_text() else {
+                    self.pos = save;
+                    return None;
+                };
+                purpose
             }
-        }
+        };
 
         if !self.at('@') {
             self.pos = save;
             self.fail("expected '@' joining a markl id's purpose and digest");
 
-            return false;
+            return None;
         }
 
         self.pos += 1;
 
-        if !self.digest() {
+        let Some(digest) = self.digest() else {
             self.pos = save;
-            return false;
-        }
+            return None;
+        };
 
-        true
+        Some(MarklId {
+            purpose: Some(purpose),
+            digest,
+        })
     }
 
     // ---- per-line-kind rules ---------------------------------------------
 
     /// `TypeContent <- MarklTerm / Ident`, the `!` line's content.
-    fn type_content(&mut self) -> bool {
+    fn type_content(&mut self) -> Option<Line> {
         let save = self.pos;
-        if self.markl_term() {
-            return true;
+        if let Some(MarklId {
+            purpose: Some(name),
+            digest,
+        }) = self.markl_term()
+        {
+            return Some(Line::Type {
+                name,
+                lock: Some(digest),
+            });
         }
 
         self.pos = save;
 
         self.ident_text()
+            .map(|name| Line::Type { name, lock: None })
     }
 
     /// `BlobContent <- String / Ident`, the `@` line's content: a markl id, or a
@@ -506,10 +596,10 @@ impl ContentParser {
     /// Note this rule does NOT go through `Digest`. The `@` PREFIX is the line's
     /// operator, not a `DigestTerm`'s term-initial `@`, and the value may be a
     /// path rather than a digest, so it stays a plain identifier or string.
-    fn blob_content(&mut self) -> bool {
+    fn blob_content(&mut self) -> Option<String> {
         let save = self.pos;
-        if self.string() {
-            return true;
+        if let Some(path) = self.string() {
+            return Some(path);
         }
 
         self.pos = save;
@@ -524,32 +614,32 @@ impl ContentParser {
     /// `FieldContent` is tried first because its branch is the only shape that
     /// can require an `=`: `RefContent`'s bare-term branches would otherwise
     /// short-circuit on the field name and leave `="..."` unconsumed.
-    fn dash_content(&mut self) -> bool {
+    fn dash_content(&mut self) -> Option<Line> {
         let save = self.pos;
-        if self.field_content() {
-            return true;
+        if let Some((name, value)) = self.field_content() {
+            return Some(Line::Field { name, value });
         }
 
         self.pos = save;
 
-        self.ref_content()
+        self.ref_content().map(Line::Term)
     }
 
     /// `RefContent <- GroundTerm` and `GroundTerm <- MarklTerm / String / Ident`.
-    fn ref_content(&mut self) -> bool {
+    fn ref_content(&mut self) -> Option<Value> {
         let save = self.pos;
-        if self.markl_term() {
-            return true;
+        if let Some(id) = self.markl_term() {
+            return Some(Value::Markl(id));
         }
 
         self.pos = save;
-        if self.string() {
-            return true;
+        if let Some(text) = self.string() {
+            return Some(Value::Text(text));
         }
 
         self.pos = save;
 
-        self.ident_text()
+        self.ident_text().map(Value::Text)
     }
 
     /// ```text
@@ -557,13 +647,13 @@ impl ContentParser {
     /// ```
     ///
     /// The optional SP around `=` is RFC 0003 §Canonical emission's spacing.
-    fn field_content(&mut self) -> bool {
+    fn field_content(&mut self) -> Option<(String, Value)> {
         let save = self.pos;
 
-        if !self.field_name() {
+        let Some(name) = self.field_name() else {
             self.pos = save;
-            return false;
-        }
+            return None;
+        };
 
         self.skip_sp_opt();
 
@@ -571,18 +661,18 @@ impl ContentParser {
             self.pos = save;
             self.fail("expected '=' in a field predicate");
 
-            return false;
+            return None;
         }
 
         self.pos += 1;
         self.skip_sp_opt();
 
-        if !self.field_rhs() {
+        let Some(value) = self.field_rhs() else {
             self.pos = save;
-            return false;
-        }
+            return None;
+        };
 
-        true
+        Some((name, value))
     }
 
     /// `FieldName <- String / Ident` — a flat per-type field namespace, where a
@@ -594,10 +684,10 @@ impl ContentParser {
     /// against the grammar rule by rule. These are two distinct rules governing
     /// unrelated things (a field namespace vs. a blob path) that happen to
     /// coincide, and either can diverge without the other.
-    fn field_name(&mut self) -> bool {
+    fn field_name(&mut self) -> Option<String> {
         let save = self.pos;
-        if self.string() {
-            return true;
+        if let Some(name) = self.string() {
+            return Some(name);
         }
 
         self.pos = save;
@@ -613,26 +703,29 @@ impl ContentParser {
     /// `DigestTerm` comes first so an id-less field lock
     /// (`_base=@blake2b256-…`) is read as a digest term rather than failing into
     /// the value branches.
-    fn field_rhs(&mut self) -> bool {
+    fn field_rhs(&mut self) -> Option<Value> {
         let save = self.pos;
-        if self.digest_term() {
-            return true;
+        if let Some(digest) = self.digest_term() {
+            return Some(Value::Markl(MarklId {
+                purpose: None,
+                digest,
+            }));
         }
 
         self.pos = save;
-        if self.markl_term() {
-            return true;
+        if let Some(id) = self.markl_term() {
+            return Some(Value::Markl(id));
         }
 
         self.pos = save;
-        if self.string() {
-            return true;
+        if let Some(text) = self.string() {
+            return Some(Value::Text(text));
         }
 
         self.pos = save;
 
         // Bareword <- IdentRune+ — the same body as Ident.
-        self.ident_text()
+        self.ident_text().map(Value::Text)
     }
 
     /// `TrailingComment?` where
@@ -646,27 +739,32 @@ impl ContentParser {
     /// glued `md%comment` and a spaced `md % comment` parse identically. The
     /// `SP?` still has to exist to consume the space in the spaced form — in a
     /// PEG, dropping it would FORBID the space rather than permit glue.
-    fn trailing_comment_opt(&mut self) {
+    ///
+    /// Returns the comment's text: everything after the `%`, verbatim.
+    fn trailing_comment_opt(&mut self) -> Option<String> {
         let save = self.pos;
 
         self.skip_sp_opt();
 
         if !self.at('%') {
             self.pos = save;
-            return;
+            return None;
         }
 
         self.pos += 1;
-        self.free_text();
+        Some(self.free_text())
     }
 
     /// `FreeText <- (!LF .)*`, which is also `OpaqueComment`'s body and a
     /// trailing comment's tail. LF is RFC 0001's own line terminator, so this
     /// stops at one rather than consuming it.
-    fn free_text(&mut self) {
+    fn free_text(&mut self) -> String {
+        let start = self.pos;
         while self.src.get(self.pos).is_some_and(|&c| c != '\n') {
             self.pos += 1;
         }
+
+        self.src[start..self.pos].iter().collect()
     }
 }
 

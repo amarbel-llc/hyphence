@@ -33,16 +33,26 @@
 //! 0002's scope boundary is that existing decoders remain conforming, so
 //! [`Document::decode`] still accepts content this function rejects. Callers
 //! wanting content strictness opt in.
+//!
+//! Above the envelope sits the typed head ([`Head`]): every line parsed into
+//! typed content (fields, markl ids, unescaped strings) and written back by a
+//! canonical encoder, so equal typed content always encodes to equal bytes.
+//! [`Head::decode`] is the strict counterpart of [`Document::decode`]. See
+//! RFC 0005 for the canonical spelling.
 
 mod content;
 mod decode;
 mod document;
 mod encode;
 mod error;
+mod head;
 
 pub use content::{ContentError, parse_content};
 pub use document::{Document, MetadataLine, Prefix};
 pub use error::Error;
+pub use head::{
+    Digest, EncodeError, Head, HeadError, HeadLine, InvalidDigest, Line, MarklId, Value, quote,
+};
 
 #[cfg(test)]
 mod conformance;

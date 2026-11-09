@@ -38,6 +38,18 @@
 #                                                not malformed documents, so the
 #                                                envelope harnesses skip them by the
 #                                                namespace rule above.
+#   head/canonical                             - the typed-head harnesses (Go
+#                                                head_vectors_test.go, Rust
+#                                                conformance.rs) must decode the
+#                                                input into a typed head, encode it
+#                                                with the RFC 0005 canonical encoder,
+#                                                and get exactly the base64-decoded
+#                                                expected field; encoding the
+#                                                expected bytes again must reproduce
+#                                                them (idempotence). Input and
+#                                                expected are both content-grammar
+#                                                valid, so the grammar harnesses check
+#                                                every line of the input too.
 #
 # Comment lines start with #. Blank lines are ignored.
 #
@@ -179,3 +191,46 @@ digest-junk-non-blech32	LS0tCiEgbWRAYmxha2UyYjI1Ni05YnQzCi0tLQo=	grammar/reject	
 
 bare-paren-in-ident	LS0tCiEgdGFzawotIHRhZygxKQotLS0K	grammar/reject	-
 quoted-paren-in-value	LS0tCiEgdGFzawotIHRhZz0iYygxKSIKLS0tCg==	document/parse-ok	-
+
+# RFC 0005 (typed head, canonical emission). Each vector is input ->
+# canonical bytes under the head/canonical outcome. Canonical form: prefix
+# order `#`, `-`, `@`, `!` with `-` lines in input order; `<` written
+# `-`; field lines spaced; a text bare when it is an Ident, else
+# double-quoted with the Doddish escapes; a markl purpose bare when it
+# fits marklid's PurposeBare, else quoted; comments kept, a trailing
+# comment written ` %text`. Literal backslashes below are part of the
+# document text.
+# Plain-text view (input => expected):
+#   head-canonical-value-kinds
+#     "---\n! task\n- bare=open\n- quoted=\"two words\"\n- markl=piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-qqxyz\n- idless=@blake2b256-jkl\n- requoted=\"open\"\n---\n"
+#     => "---\n- bare = open\n- quoted = \"two words\"\n- markl = piggy-piv_auth-v1@ssh_ecdsa_nistp256_pub-qqxyz\n- idless = @blake2b256-jkl\n- requoted = open\n! task\n---\n"
+#   head-canonical-quoted-field-name
+#     "---\n! task\n- \"odd name\"=\"v\"\n- \"plain\"=v\n---\n"
+#     => "---\n- \"odd name\" = v\n- plain = v\n! task\n---\n"
+#   head-canonical-locked-type-and-reference
+#     "---\n! md@blake2b256-acd\n- one/uno@blake2b256-def\n- tag\n---\n"
+#     => "---\n- one/uno@blake2b256-def\n- tag\n! md@blake2b256-acd\n---\n"
+#   head-canonical-purpose-spelling (quoted purpose holding the join rune;
+#   quoted purpose that can be bare; Ident purpose outside PurposeBare)
+#     "---\n! task\n- \"a@b\"@blake2b256-xyz\n- k=\"md\"@blake2b256-acd\n- j=caldav:x@blake2b256-acd\n---\n"
+#     => "---\n- \"a@b\"@blake2b256-xyz\n- k = md@blake2b256-acd\n- j = \"caldav:x\"@blake2b256-acd\n! task\n---\n"
+#   head-canonical-unspaced-to-spaced (and `<` re-emitted as `-`)
+#     "---\n! task\n- due=\"2026-08-01\"\n< blocks=other/task@blake2b256-ghj\n---\n"
+#     => "---\n- due = 2026-08-01\n- blocks = other/task@blake2b256-ghj\n! task\n---\n"
+#   head-canonical-comments-kept
+#     "---\n! md%type note\n% lead\n- k=v%glued\n# d\n% tail\n---\n"
+#     => "---\n# d\n% lead\n- k = v %glued\n! md %type note\n% tail\n---\n"
+#   head-canonical-escapes (a LF in a value stays the two characters \n)
+#     "---\n! task\n- note=\"a\\\"b\\\\c\\td\"\n- nl=\"a\\nb\"\n- odd=\"x\\qy z\"\n---\n"
+#     => "---\n- note = \"a\\\"b\\\\c\\td\"\n- nl = \"a\\nb\"\n- odd = \"xqy z\"\n! task\n---\n"
+#   head-canonical-body
+#     "---\n! md\n# d\n---\n\nbody\n" => "---\n# d\n! md\n---\n\nbody\n"
+
+head-canonical-value-kinds	LS0tCiEgdGFzawotIGJhcmU9b3BlbgotIHF1b3RlZD0idHdvIHdvcmRzIgotIG1hcmtsPXBpZ2d5LXBpdl9hdXRoLXYxQHNzaF9lY2RzYV9uaXN0cDI1Nl9wdWItcXF4eXoKLSBpZGxlc3M9QGJsYWtlMmIyNTYtamtsCi0gcmVxdW90ZWQ9Im9wZW4iCi0tLQo=	head/canonical	LS0tCi0gYmFyZSA9IG9wZW4KLSBxdW90ZWQgPSAidHdvIHdvcmRzIgotIG1hcmtsID0gcGlnZ3ktcGl2X2F1dGgtdjFAc3NoX2VjZHNhX25pc3RwMjU2X3B1Yi1xcXh5egotIGlkbGVzcyA9IEBibGFrZTJiMjU2LWprbAotIHJlcXVvdGVkID0gb3BlbgohIHRhc2sKLS0tCg==
+head-canonical-quoted-field-name	LS0tCiEgdGFzawotICJvZGQgbmFtZSI9InYiCi0gInBsYWluIj12Ci0tLQo=	head/canonical	LS0tCi0gIm9kZCBuYW1lIiA9IHYKLSBwbGFpbiA9IHYKISB0YXNrCi0tLQo=
+head-canonical-locked-type-and-reference	LS0tCiEgbWRAYmxha2UyYjI1Ni1hY2QKLSBvbmUvdW5vQGJsYWtlMmIyNTYtZGVmCi0gdGFnCi0tLQo=	head/canonical	LS0tCi0gb25lL3Vub0BibGFrZTJiMjU2LWRlZgotIHRhZwohIG1kQGJsYWtlMmIyNTYtYWNkCi0tLQo=
+head-canonical-purpose-spelling	LS0tCiEgdGFzawotICJhQGIiQGJsYWtlMmIyNTYteHl6Ci0gaz0ibWQiQGJsYWtlMmIyNTYtYWNkCi0gaj1jYWxkYXY6eEBibGFrZTJiMjU2LWFjZAotLS0K	head/canonical	LS0tCi0gImFAYiJAYmxha2UyYjI1Ni14eXoKLSBrID0gbWRAYmxha2UyYjI1Ni1hY2QKLSBqID0gImNhbGRhdjp4IkBibGFrZTJiMjU2LWFjZAohIHRhc2sKLS0tCg==
+head-canonical-unspaced-to-spaced	LS0tCiEgdGFzawotIGR1ZT0iMjAyNi0wOC0wMSIKPCBibG9ja3M9b3RoZXIvdGFza0BibGFrZTJiMjU2LWdoagotLS0K	head/canonical	LS0tCi0gZHVlID0gMjAyNi0wOC0wMQotIGJsb2NrcyA9IG90aGVyL3Rhc2tAYmxha2UyYjI1Ni1naGoKISB0YXNrCi0tLQo=
+head-canonical-comments-kept	LS0tCiEgbWQldHlwZSBub3RlCiUgbGVhZAotIGs9diVnbHVlZAojIGQKJSB0YWlsCi0tLQo=	head/canonical	LS0tCiMgZAolIGxlYWQKLSBrID0gdiAlZ2x1ZWQKISBtZCAldHlwZSBub3RlCiUgdGFpbAotLS0K
+head-canonical-escapes	LS0tCiEgdGFzawotIG5vdGU9ImFcImJcXGNcdGQiCi0gbmw9ImFcbmIiCi0gb2RkPSJ4XHF5IHoiCi0tLQo=	head/canonical	LS0tCi0gbm90ZSA9ICJhXCJiXFxjXHRkIgotIG5sID0gImFcbmIiCi0gb2RkID0gInhxeSB6IgohIHRhc2sKLS0tCg==
+head-canonical-body	LS0tCiEgbWQKIyBkCi0tLQoKYm9keQo=	head/canonical	LS0tCiMgZAohIG1kCi0tLQoKYm9keQo=
