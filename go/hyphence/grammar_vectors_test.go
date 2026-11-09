@@ -42,6 +42,10 @@ var grammarCheckableOutcomes = map[string]bool{
 	// real content production. Listed here so the vector reaches the
 	// per-line loop below, where the assertion is inverted.
 	grammarRejectOutcome: true,
+	// head/canonical inputs are content-grammar valid by the outcome's own
+	// definition (head_vectors_test.go reads every line as typed content),
+	// so the .peg and ParseContent must accept each of their lines too.
+	headCanonicalOutcome: true,
 }
 
 // grammarRejectOutcome marks a vector whose content-grammar-governed

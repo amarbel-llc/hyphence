@@ -7,12 +7,13 @@ import (
 )
 
 // This file is the Go implementation of docs/rfcs/hyphence-content.peg —
-// the content grammar RFC 0002 defines and RFC 0003 amends. It is a
-// RECOGNIZER: it decides whether a metadata line's content is well-formed
-// under the production its PREFIX selects, and reports where and why when
-// it is not. It deliberately does not build a syntax tree; no caller needs
-// one yet, and an unused AST would be two more surfaces (Go and Rust) to
-// keep in lockstep for nothing. Adding one later is additive.
+// the content grammar RFC 0002 defines and RFC 0003 amends. It decides
+// whether a metadata line's content is well-formed under the production
+// its PREFIX selects, reports where and why when it is not, and — for the
+// typed head model in head.go — returns what it parsed. There is ONE
+// parser: ParseContent is the typed parse (parseLine) with its result
+// discarded, so the recognizer and the typed reader cannot disagree about
+// a line.
 //
 // SCOPE — this is NOT wired into the decode path. Reader/Decoder stay
 // envelope-only, because RFC 0002's own scope boundary is that "existing
@@ -23,7 +24,8 @@ import (
 // pre-RFC-0003 spellings to prove old documents still DECODE. Making
 // decode strict would break exactly the compatibility those vectors exist
 // to pin. The strictness is surfaced through `hyphence validate` instead,
-// whose job already is strict conformance.
+// whose job already is strict conformance, and through HeadFromDocument /
+// DecodeHead, which opt in by reading typed content.
 //
 // LOCKSTEP — rust/hyphence/src/content.rs mirrors this file rule for rule.
 // The shared corpus (testdata/rfc_vectors.txt, kept byte-identical by
@@ -91,43 +93,170 @@ func (e *ContentSyntaxError) Is(target error) bool {
 // errors.Is(err, ErrMalformedContent). An unrecognized prefix returns
 // ErrInvalidPrefix.
 func ParseContent(prefix byte, content string) error {
+	_, err := parseLine(prefix, content)
+	return err
+}
+
+// parsedLine is one metadata line's content, parsed: the typed line plus
+// its trailing comment, if any. isComment marks a '%' comment line, which
+// carries no typed content of its own (line and trailingComment are then
+// zero).
+type parsedLine struct {
+	line            Line
+	trailingComment *string
+	isComment       bool
+}
+
+// parseLine is the typed parse behind ParseContent and HeadFromDocument.
+// Errors are as ParseContent documents them.
+func parseLine(prefix byte, content string) (parsedLine, error) {
 	p := &contentParser{src: []rune(content)}
 
+	var parsed parsedLine
+
 	switch prefix {
-	case '#', '%':
-		// FreeText / OpaqueComment: unconditional within one line.
+	case '#':
+		// FreeText: unconditional within one line.
+		parsed.line = Line{Kind: LineDescription, Text: p.parseFreeText()}
+
+	case '%':
+		// OpaqueComment: unconditional within one line.
 		p.parseFreeText()
+		parsed.isComment = true
 
 	case '!':
-		if !p.parseTypeContent() {
-			return p.syntaxError(prefix, "expected a type identifier or a markl id")
+		line, ok := p.parseTypeContent()
+		if !ok {
+			return parsedLine{}, p.syntaxError(prefix, "expected a type identifier or a markl id")
 		}
 
-		p.parseTrailingCommentOpt()
+		parsed.line = line
+		parsed.trailingComment = p.trailingComment()
 
 	case '@':
-		if !p.parseBlobContent() {
-			return p.syntaxError(prefix, "expected a blob reference: a markl id or a path")
+		blob, ok := p.parseBlobContent()
+		if !ok {
+			return parsedLine{}, p.syntaxError(prefix, "expected a blob reference: a markl id or a path")
 		}
 
-		p.parseTrailingCommentOpt()
+		parsed.line = Line{Kind: LineBlob, Text: blob}
+		parsed.trailingComment = p.trailingComment()
 
 	case '-', '<':
-		if !p.parseDashContent() {
-			return p.syntaxError(prefix, "expected a field predicate or a reference term")
+		line, ok := p.parseDashContent()
+		if !ok {
+			return parsedLine{}, p.syntaxError(prefix, "expected a field predicate or a reference term")
 		}
 
-		p.parseTrailingCommentOpt()
+		parsed.line = line
+		parsed.trailingComment = p.trailingComment()
 
 	default:
-		return ErrInvalidPrefix
+		return parsedLine{}, ErrInvalidPrefix
 	}
 
 	if !p.atEOF() {
-		return p.syntaxError(prefix, "unexpected trailing content")
+		return parsedLine{}, p.syntaxError(prefix, "unexpected trailing content")
 	}
 
-	return nil
+	return parsed, nil
+}
+
+// trailingComment parses the optional TrailingComment after a structured
+// line's content into parsedLine's pointer form.
+func (p *contentParser) trailingComment() *string {
+	comment, ok := p.parseTrailingCommentOpt()
+	if !ok {
+		return nil
+	}
+
+	return &comment
+}
+
+// isBareIdent reports whether s is expressible unquoted as an Ident
+// (equally a Bareword or a bare FieldName): non-empty, and every rune
+// consumed as identifier content under the strict sigil rule. The
+// canonical encoder writes a text bare exactly when this holds.
+func isBareIdent(s string) bool {
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return false
+	}
+
+	for i := range runes {
+		if !isContentIdentRuneAt(runes, i) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isDigestParts reports whether format and data form a well-formed Digest
+// slot: a non-empty Format run, and a non-empty DataChar run
+// (charset-strict, length-agnostic).
+func isDigestParts(format, data string) bool {
+	if format == "" || data == "" {
+		return false
+	}
+
+	for _, r := range format {
+		if !isContentFormatChar(r) {
+			return false
+		}
+	}
+
+	for _, r := range data {
+		if !isContentDataChar(r) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// unescapeQuotedInterior applies the Doddish unescape rules piggy-markl
+// applies to a quoted slot: \n \t \r \a \b \f \v name their control
+// characters, and any other escaped rune stands for itself (which is what
+// makes \" and \\ work).
+func unescapeQuotedInterior(interior []rune) string {
+	var out strings.Builder
+	out.Grow(len(interior))
+
+	for i := 0; i < len(interior); i++ {
+		r := interior[i]
+		if r != '\\' {
+			out.WriteRune(r)
+			continue
+		}
+
+		i++
+		if i >= len(interior) {
+			out.WriteRune('\\')
+			break
+		}
+
+		switch escaped := interior[i]; escaped {
+		case 'n':
+			out.WriteRune('\n')
+		case 't':
+			out.WriteRune('\t')
+		case 'r':
+			out.WriteRune('\r')
+		case 'a':
+			out.WriteRune('\a')
+		case 'b':
+			out.WriteRune('\b')
+		case 'f':
+			out.WriteRune('\f')
+		case 'v':
+			out.WriteRune('\v')
+		default:
+			out.WriteRune(escaped)
+		}
+	}
+
+	return out.String()
 }
 
 // ---- rune classes ------------------------------------------------------
@@ -237,9 +366,9 @@ func isContentDataChar(r rune) bool {
 // over hyphence-content.peg. Each grammar rule has a corresponding parseX
 // method; ordered choices try alternatives in the grammar's own order and
 // restore pos on failure, mirroring PEG's
-// ordered-choice-with-backtracking semantics. Methods return a bool rather
-// than an error: only ParseContent builds a diagnostic, from the farthest
-// position any sub-parse reached.
+// ordered-choice-with-backtracking semantics. Methods return what they
+// parsed plus an ok bool rather than an error: only parseLine builds a
+// diagnostic, from the farthest position any sub-parse reached.
 type contentParser struct {
 	src []rune
 	pos int
@@ -290,7 +419,7 @@ func (p *contentParser) skipSPOpt() {
 // parseIdentText implements Ident <- IdentRune+, and equally
 // Bareword <- IdentRune+: the two rules have identical bodies under
 // different names, so one scanner serves both.
-func (p *contentParser) parseIdentText() bool {
+func (p *contentParser) parseIdentText() (string, bool) {
 	start := p.pos
 	for !p.atEOF() && isContentIdentRuneAt(p.src, p.pos) {
 		p.pos++
@@ -298,10 +427,10 @@ func (p *contentParser) parseIdentText() bool {
 
 	if p.pos == start {
 		p.fail("expected an identifier")
-		return false
+		return "", false
 	}
 
-	return true
+	return string(p.src[start:p.pos]), true
 }
 
 // parseString implements the imported piggy rules
@@ -312,32 +441,37 @@ func (p *contentParser) parseIdentText() bool {
 // A backslash consumes the following rune, so an escaped quote does not
 // close the string. A trailing lone backslash is consumed by Char's second
 // alternative and then fails on the missing close quote, matching the PEG.
-func (p *contentParser) parseString() bool {
+//
+// Returns the UNESCAPED interior (see unescapeQuotedInterior).
+func (p *contentParser) parseString() (string, bool) {
 	save := p.pos
 	if p.atEOF() {
 		p.fail("expected a quoted string")
-		return false
+		return "", false
 	}
 
 	quote := p.src[p.pos]
 	if quote != '"' && quote != '\'' {
 		p.fail("expected a quoted string")
-		return false
+		return "", false
 	}
 
 	p.pos++
+	interiorStart := p.pos
 
 	for {
 		if p.atEOF() {
 			p.pos = save
 			p.fail("unterminated quoted string")
 
-			return false
+			return "", false
 		}
 
 		if p.src[p.pos] == quote {
+			interior := unescapeQuotedInterior(p.src[interiorStart:p.pos])
 			p.pos++
-			return true
+
+			return interior, true
 		}
 
 		if p.src[p.pos] == '\\' && p.pos+1 < len(p.src) {
@@ -364,7 +498,7 @@ func (p *contentParser) parseString() bool {
 // is outside blech32 and therefore an IdentRune sitting immediately after
 // the '9' DataChar run, so this refuses rather than silently accepting a
 // truncated '9'.
-func (p *contentParser) parseDigest() bool {
+func (p *contentParser) parseDigest() (MarklDigest, bool) {
 	save := p.pos
 
 	formatStart := p.pos
@@ -376,14 +510,16 @@ func (p *contentParser) parseDigest() bool {
 		p.pos = save
 		p.fail("expected a markl-id format")
 
-		return false
+		return MarklDigest{}, false
 	}
+
+	formatEnd := p.pos
 
 	if !p.at('-') {
 		p.pos = save
 		p.fail("expected '-' between a markl id's format and data")
 
-		return false
+		return MarklDigest{}, false
 	}
 
 	p.pos++
@@ -397,36 +533,40 @@ func (p *contentParser) parseDigest() bool {
 		p.pos = save
 		p.fail("expected markl-id digest data in the blech32 alphabet")
 
-		return false
+		return MarklDigest{}, false
 	}
 
 	if !p.atEOF() && isContentIdentRuneAt(p.src, p.pos) {
 		p.pos = save
 		p.fail("markl-id digest data contains a character outside the blech32 alphabet")
 
-		return false
+		return MarklDigest{}, false
 	}
 
-	return true
+	return MarklDigest{
+		format: string(p.src[formatStart:formatEnd]),
+		data:   string(p.src[dataStart:p.pos]),
+	}, true
 }
 
 // parseDigestTerm implements DigestTerm <- '@' Digest — blob identity,
 // content-addressed exact match, with a term-initial '@'.
-func (p *contentParser) parseDigestTerm() bool {
+func (p *contentParser) parseDigestTerm() (MarklDigest, bool) {
 	save := p.pos
 	if !p.at('@') {
 		p.fail("expected '@' introducing a digest term")
-		return false
+		return MarklDigest{}, false
 	}
 
 	p.pos++
 
-	if !p.parseDigest() {
+	digest, ok := p.parseDigest()
+	if !ok {
 		p.pos = save
-		return false
+		return MarklDigest{}, false
 	}
 
-	return true
+	return digest, true
 }
 
 // parseMarklTerm implements MarklTerm <- (String / Ident) '@' Digest — one
@@ -438,14 +578,16 @@ func (p *contentParser) parseDigestTerm() bool {
 // quote-aware scan piggy RFC 0011 §2.2 requires — locating the join with
 // the FIRST '@' would split this id wrongly, and it is the single most
 // divergence-prone point across the implementations.
-func (p *contentParser) parseMarklTerm() bool {
+func (p *contentParser) parseMarklTerm() (MarklID, bool) {
 	save := p.pos
 
-	if !p.parseString() {
+	purpose, ok := p.parseString()
+	if !ok {
 		p.pos = save
-		if !p.parseIdentText() {
+
+		if purpose, ok = p.parseIdentText(); !ok {
 			p.pos = save
-			return false
+			return MarklID{}, false
 		}
 	}
 
@@ -453,32 +595,39 @@ func (p *contentParser) parseMarklTerm() bool {
 		p.pos = save
 		p.fail("expected '@' joining a markl id's purpose and digest")
 
-		return false
+		return MarklID{}, false
 	}
 
 	p.pos++
 
-	if !p.parseDigest() {
+	digest, ok := p.parseDigest()
+	if !ok {
 		p.pos = save
-		return false
+		return MarklID{}, false
 	}
 
-	return true
+	return MarklID{Purpose: &purpose, Digest: digest}, true
 }
 
 // ---- per-line-kind rules -----------------------------------------------
 
 // parseTypeContent implements TypeContent <- MarklTerm / Ident, the '!'
 // line's content.
-func (p *contentParser) parseTypeContent() bool {
+func (p *contentParser) parseTypeContent() (Line, bool) {
 	save := p.pos
-	if p.parseMarklTerm() {
-		return true
+	if id, ok := p.parseMarklTerm(); ok {
+		lock := id.Digest
+		return Line{Kind: LineType, Name: *id.Purpose, Lock: &lock}, true
 	}
 
 	p.pos = save
 
-	return p.parseIdentText()
+	name, ok := p.parseIdentText()
+	if !ok {
+		return Line{}, false
+	}
+
+	return Line{Kind: LineType, Name: name}, true
 }
 
 // parseBlobContent implements BlobContent <- String / Ident, the '@' line's
@@ -488,10 +637,10 @@ func (p *contentParser) parseTypeContent() bool {
 // Note this rule does NOT go through Digest. The '@' PREFIX is the line's
 // operator, not a DigestTerm's term-initial '@', and the value may be a
 // path rather than a digest, so it stays a plain identifier or string.
-func (p *contentParser) parseBlobContent() bool {
+func (p *contentParser) parseBlobContent() (string, bool) {
 	save := p.pos
-	if p.parseString() {
-		return true
+	if path, ok := p.parseString(); ok {
+		return path, true
 	}
 
 	p.pos = save
@@ -506,33 +655,43 @@ func (p *contentParser) parseBlobContent() bool {
 // FieldContent is tried first because its branch is the only shape that
 // can require an '=': RefContent's bare-term branches would otherwise
 // short-circuit on the field name and leave `="..."` unconsumed.
-func (p *contentParser) parseDashContent() bool {
+func (p *contentParser) parseDashContent() (Line, bool) {
 	save := p.pos
-	if p.parseFieldContent() {
-		return true
+	if name, value, ok := p.parseFieldContent(); ok {
+		return Line{Kind: LineField, Name: name, Value: value}, true
 	}
 
 	p.pos = save
 
-	return p.parseRefContent()
+	term, ok := p.parseRefContent()
+	if !ok {
+		return Line{}, false
+	}
+
+	return Line{Kind: LineTerm, Value: term}, true
 }
 
 // parseRefContent implements RefContent <- GroundTerm and
 // GroundTerm <- MarklTerm / String / Ident.
-func (p *contentParser) parseRefContent() bool {
+func (p *contentParser) parseRefContent() (Value, bool) {
 	save := p.pos
-	if p.parseMarklTerm() {
-		return true
+	if id, ok := p.parseMarklTerm(); ok {
+		return Value{Markl: &id}, true
 	}
 
 	p.pos = save
-	if p.parseString() {
-		return true
+	if text, ok := p.parseString(); ok {
+		return Value{Text: text}, true
 	}
 
 	p.pos = save
 
-	return p.parseIdentText()
+	text, ok := p.parseIdentText()
+	if !ok {
+		return Value{}, false
+	}
+
+	return Value{Text: text}, true
 }
 
 // parseFieldContent implements
@@ -540,12 +699,13 @@ func (p *contentParser) parseRefContent() bool {
 //	FieldContent <- FieldName SP? '=' SP? FieldRHS
 //
 // The optional SP around '=' is RFC 0003 §Canonical emission's spacing.
-func (p *contentParser) parseFieldContent() bool {
+func (p *contentParser) parseFieldContent() (string, Value, bool) {
 	save := p.pos
 
-	if !p.parseFieldName() {
+	name, ok := p.parseFieldName()
+	if !ok {
 		p.pos = save
-		return false
+		return "", Value{}, false
 	}
 
 	p.skipSPOpt()
@@ -554,18 +714,19 @@ func (p *contentParser) parseFieldContent() bool {
 		p.pos = save
 		p.fail("expected '=' in a field predicate")
 
-		return false
+		return "", Value{}, false
 	}
 
 	p.pos++
 	p.skipSPOpt()
 
-	if !p.parseFieldRHS() {
+	value, ok := p.parseFieldRHS()
+	if !ok {
 		p.pos = save
-		return false
+		return "", Value{}, false
 	}
 
-	return true
+	return name, value, true
 }
 
 // parseFieldName implements FieldName <- String / Ident — a flat per-type
@@ -579,10 +740,10 @@ func (p *contentParser) parseFieldContent() bool {
 // coincide, and either can diverge without the other. Ident/Bareword share
 // one scanner only because the grammar gives them the same body under two
 // names for readability, which is a different situation.
-func (p *contentParser) parseFieldName() bool {
+func (p *contentParser) parseFieldName() (string, bool) {
 	save := p.pos
-	if p.parseString() {
-		return true
+	if name, ok := p.parseString(); ok {
+		return name, true
 	}
 
 	p.pos = save
@@ -597,26 +758,31 @@ func (p *contentParser) parseFieldName() bool {
 //
 // DigestTerm comes first so an id-less field lock (`_base=@blake2b256-…`)
 // is read as a digest term rather than failing into the value branches.
-func (p *contentParser) parseFieldRHS() bool {
+func (p *contentParser) parseFieldRHS() (Value, bool) {
 	save := p.pos
-	if p.parseDigestTerm() {
-		return true
+	if digest, ok := p.parseDigestTerm(); ok {
+		return Value{Markl: &MarklID{Digest: digest}}, true
 	}
 
 	p.pos = save
-	if p.parseMarklTerm() {
-		return true
+	if id, ok := p.parseMarklTerm(); ok {
+		return Value{Markl: &id}, true
 	}
 
 	p.pos = save
-	if p.parseString() {
-		return true
+	if text, ok := p.parseString(); ok {
+		return Value{Text: text}, true
 	}
 
 	p.pos = save
 
 	// Bareword <- IdentRune+ — the same body as Ident.
-	return p.parseIdentText()
+	text, ok := p.parseIdentText()
+	if !ok {
+		return Value{}, false
+	}
+
+	return Value{Text: text}, true
 }
 
 // parseTrailingCommentOpt implements TrailingComment? where
@@ -628,25 +794,32 @@ func (p *contentParser) parseFieldRHS() bool {
 // glued `md%comment` and a spaced `md % comment` parse identically. The
 // SP? still has to exist to consume the space in the spaced form — in a
 // PEG, dropping it would FORBID the space rather than permit glue.
-func (p *contentParser) parseTrailingCommentOpt() {
+//
+// Returns the comment's text — everything after the '%', verbatim — and
+// whether a trailing comment was present.
+func (p *contentParser) parseTrailingCommentOpt() (string, bool) {
 	save := p.pos
 
 	p.skipSPOpt()
 
 	if !p.at('%') {
 		p.pos = save
-		return
+		return "", false
 	}
 
 	p.pos++
-	p.parseFreeText()
+
+	return p.parseFreeText(), true
 }
 
 // parseFreeText implements FreeText <- (!LF .)*, which is also
 // OpaqueComment's body and a trailing comment's tail. LF is RFC 0001's own
 // line terminator, so this stops at one rather than consuming it.
-func (p *contentParser) parseFreeText() {
+func (p *contentParser) parseFreeText() string {
+	start := p.pos
 	for !p.atEOF() && p.src[p.pos] != '\n' {
 		p.pos++
 	}
+
+	return string(p.src[start:p.pos])
 }

@@ -32,7 +32,9 @@ Head::fields(), Head::type_line(), quote(&str)
 ```
 
 The Go twin (`go/hyphence/head.go`) mirrors it with a `Kind`-tagged `Line`
-struct.
+struct: `HeadFromDocument`, `DecodeHead`, `Head.Document`, `Head.Encode`,
+`Quote`. Its digest type is `MarklDigest`, because the package already exports
+a `Digest` (the opaque `@`-line value).
 
 ## Decisions
 
@@ -64,6 +66,15 @@ field tables and refusals, RFC 0004 bindings, any change to RFC 0001. No
 grammar amendment was needed.
 
 ## Follow-ups
+
+- **Go cannot tell an empty body from no body.** Go's `Reader` hands its blob
+  consumer the same empty stream for `---\n…---\n` and `---\n…---\n\n`, so
+  `DecodeHead` reports `hasBody` only when at least one body byte follows.
+  Rust's `Head::decode` returns `Some(empty)` for the second. Re-encoding such
+  a document in Go drops the separator. No vector has an empty body; fixing it
+  means changing `Reader`.
+- Go's `Reader` may not report EOF inside the metadata section as an error
+  (Rust returns `UnterminatedMetadata`); unverified, predates this slice.
 
 - piggy-pigpen's minimal framing (`crates/piggy-pigpen/src/hyphence.rs`) can
   move onto this crate (piggy RFC 0008 Compatibility); piggy's call.

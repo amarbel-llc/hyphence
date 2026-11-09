@@ -43,8 +43,9 @@ with `docs/rfcs/hyphence-content.peg` (normative) and
 `rust/hyphence/src/content.rs`.
 
 - `ParseContent(prefix byte, content string) error`: checks one line's
-  content against the production its prefix selects. A recognizer, not
-  a tree-builder — no caller needs an AST yet.
+  content against the production its prefix selects. It is the typed
+  parse (`parseLine`) with its result discarded, so the recognizer and
+  the typed head below share one parser.
 - `ContentSyntaxError`: the concrete error, carrying the prefix, a
   rune offset, and what was expected. Matches
   `errors.Is(err, ErrMalformedContent)`.
@@ -61,6 +62,24 @@ Two things to know before changing it:
   imported from piggy's `marklid.peg`. `blake2b256-9bt3` is rejected
   because `b` is outside blech32. Changing this means changing the
   `.peg`, both parsers, and the shared vectors together.
+
+## Typed head (RFC 0005)
+
+`head.go` is the Go twin of `rust/hyphence/src/head.rs`: the metadata
+section read into typed lines, plus the canonical encoder
+(`docs/rfcs/0005-canonical-emission.md`).
+
+- `DecodeHead(r)` / `HeadFromDocument(doc)` → `Head` (`[]HeadLine` with
+  leading/trailing comments); a content error is a `*HeadContentError`
+  matching `ErrMalformedContent`.
+- `Line` is a `LineKind`-tagged struct (description, field, term, blob,
+  type); `Value` is a markl id (`*MarklID`) or text; `MarklDigest` is the
+  `format-data` slot (`Digest` is taken by `type_digest.go`).
+- `Head.Encode(w, body, hasBody)` / `Head.Document()` spell every line
+  canonically; `Quote` is the Doddish quoter.
+- The `head/canonical` vectors (`head_vectors_test.go`) pin byte equality
+  with Rust. `DecodeHead` cannot tell an empty body from no body
+  (`Reader` limitation; see its doc comment).
 
 ## See also
 
