@@ -194,6 +194,14 @@ line shape, so they share one bucket. Reference *aliasing* --- a future way
 to give a reference a short local name --- has a syntax slot reserved for it
 but is not yet specified.)
 
+**Canonical form** goes further than order: it also fixes how each value is
+spelled, so equal content always encodes to equal bytes. Field lines are
+written **- key = value**; a value is bare when it is a valid identifier and
+double-quoted otherwise (escapes **\\\\ \\" \\n \\t \\r \\a \\b \\f \\v**);
+a markl id's purpose is bare when it is only letters, digits, **\_ / -**;
+**<** is written **-**; comments are kept. Lines keep their given order within
+each bucket. See `docs/rfcs/0005-canonical-emission.md`.
+
 # VERSIONING
 
 Hyphence has no version indicator. Format evolution uses type strings: new
@@ -250,4 +258,5 @@ A repo config with an inline annotation:
 **markl-id**(7), **organize-text**(7), **blob-store**(7). For the normative
 envelope specification, see `docs/rfcs/0001-hyphence.md`; for the normative
 content grammar (locks, field lines, typed edges, trailing comments, the
-**<** deprecation), see `docs/rfcs/0002-content-grammar.md`.
+**<** deprecation), see `docs/rfcs/0002-content-grammar.md`; for canonical
+value spelling, see `docs/rfcs/0005-canonical-emission.md`.

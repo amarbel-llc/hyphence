@@ -46,6 +46,29 @@ rather than vendoring a copy. Because langlang resolves `@import` relative to th
 importing file, the local grammar gates stage piggy's `marklid.peg` beside the
 `.peg` before running (`.#grammarStaged`).
 
+## Typed head and canonical form
+
+Above the envelope sits a typed reading of the head, in both languages
+(`Head` in Rust and Go): every line parsed by its production into descriptions,
+`key = value` fields, tag/reference terms, the blob line and the (optionally
+locked) type line, with quoted strings unescaped and markl ids split into
+purpose and digest *text* (never decoded). Its encoder writes
+[RFC 0005](docs/rfcs/0005-canonical-emission.md)'s canonical form, so equal
+typed content always encodes to equal bytes:
+
+```rust
+let (mut head, body) = hyphence::Head::decode(bytes)?;   // strict: refuses what the content grammar refuses
+head.lines.retain(|l| l.trailing_comment.is_none());     // consumer edits: drop, reorder, add lines
+let canonical = head.encode(body.as_deref())?;            // `- key = value`, bare-when-legal, `#` `-` `@` `!` order
+```
+
+Hyphence orders lines by prefix only and keeps the caller's order within the
+`-` lines, so a consumer imposes its own field order by ordering
+`head.lines`. What stays out: markl decoding, body parsing, and any type's
+field table. Consumers depend on the crate as a cargo git dependency
+(`hyphence = { git = "…/hyphence" }`); the plan is
+[`docs/plans/2026-11-09-typed-head.md`](docs/plans/2026-11-09-typed-head.md).
+
 ## Layout
 
 The repository is polyglot, with one implementation per language under a
@@ -54,7 +77,7 @@ language-named top-level directory:
 ```
 go/      Go implementation: the hyphence library (package hyphence) + the hyphence CLI (cmd/hyphence)
 rust/    Rust implementation (crate hyphence, RFC 0001 envelope; zero deps, edition 2024)
-docs/    RFC 0001-0003, hyphence-content.peg (langlang-validated grammar
+docs/    RFC 0001-0003 and 0005, hyphence-content.peg (langlang-validated grammar
          companion) + the man.1 (CLI) and man.7 (format) manuals
 ```
 
