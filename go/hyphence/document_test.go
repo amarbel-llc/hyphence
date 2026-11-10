@@ -395,6 +395,13 @@ func runDocumentVector(t *testing.T, name string, input []byte, outcome string) 
 		if !errors.Is(err, ErrMalformedMetadataLine) {
 			t.Errorf("expected ErrMalformedMetadataLine, got %v", err)
 		}
+	case "document/parse-error-unterminated-metadata":
+		v := &MetadataValidator{}
+		reader := Reader{RequireMetadata: true, Metadata: v, Blob: discardReaderFrom{}}
+		_, err := reader.ReadFrom(bytes.NewReader(input))
+		if !errors.Is(err, ErrUnterminatedMetadata) {
+			t.Errorf("expected ErrUnterminatedMetadata, got %v", err)
+		}
 	case "document/parse-error-inline-body-with-at":
 		v := &MetadataValidator{}
 		body := &CountingDiscardReaderFrom{}

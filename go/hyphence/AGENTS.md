@@ -78,8 +78,11 @@ section read into typed lines, plus the canonical encoder
 - `Head.Encode(w, body, hasBody)` / `Head.Document()` spell every line
   canonically; `Quote` is the Doddish quoter.
 - The `head/canonical` vectors (`head_vectors_test.go`) pin byte equality
-  with Rust. `DecodeHead` cannot tell an empty body from no body
-  (`Reader` limitation; see its doc comment).
+  with Rust. `DecodeHead`'s `hasBody` comes from `Reader.HasBody()`, the
+  only place an empty body and no body differ (the Blob consumer sees the
+  same empty stream). `Reader` returns `ErrUnterminatedMetadata` on EOF
+  inside the metadata section; `Coder`, `Decoder` and
+  `coder_to_typed_blob.go` keep their own state machines and do not yet.
 
 ## See also
 

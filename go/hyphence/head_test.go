@@ -197,16 +197,55 @@ func TestHead_CanonicalSpelling(t *testing.T) {
 	}
 }
 
-// TestDecodeHead_EmptyBodyReadsAsNoBody pins a known divergence from the
-// Rust Head::decode, which returns Some(empty) for the second input:
-// Reader hands its Blob consumer the same empty stream for both, so
-// DecodeHead cannot tell them apart. If Reader learns to, flip this test.
-func TestDecodeHead_EmptyBodyReadsAsNoBody(t *testing.T) {
-	for _, input := range []string{"---\n! md\n---\n", "---\n! md\n---\n\n"} {
-		_, body, hasBody := decodeHeadString(t, input)
-		if hasBody || len(body) != 0 {
-			t.Errorf("%q: hasBody = %v, body = %q; want no body", input, hasBody, body)
+// Same split as Rust's Head::decode: None for no separator, Some(empty)
+// for a separator with nothing after it, and the separator survives a
+// re-encode.
+func TestDecodeHead_EmptyBodyIsNotNoBody(t *testing.T) {
+	for _, tc := range []struct {
+		input   string
+		hasBody bool
+	}{
+		{"---\n! md\n---\n", false},
+		{"---\n! md\n---\n\n", true},
+		{"---\n! md\n---\n\nx", true},
+		{"", false},
+		{"plain", true},
+	} {
+		_, body, hasBody := decodeHeadString(t, tc.input)
+		if hasBody != tc.hasBody {
+			t.Errorf("%q: hasBody = %v, want %v (body %q)", tc.input, hasBody, tc.hasBody, body)
 		}
+
+		if got := canonicalHead(t, tc.input); got != tc.input {
+			t.Errorf("%q: re-encoded as %q", tc.input, got)
+		}
+	}
+}
+
+func TestDecodeHead_UnterminatedMetadata(t *testing.T) {
+	for _, input := range []string{"---\n", "---\n! md\n", "---\n! md", "---\n# d\n% c\n"} {
+		_, _, _, err := DecodeHead(strings.NewReader(input))
+		if !errors.Is(err, ErrUnterminatedMetadata) {
+			t.Errorf("%q: err = %v, want ErrUnterminatedMetadata", input, err)
+		}
+	}
+}
+
+func TestReader_HasBodyWithMissingSeparatorAllowed(t *testing.T) {
+	var body bytes.Buffer
+
+	reader := Reader{
+		AllowMissingSeparator: true,
+		Metadata:              &MetadataBuilder{Doc: &Document{}},
+		Blob:                  &BodyStreamer{W: &body},
+	}
+
+	if _, err := reader.ReadFrom(strings.NewReader("---\n! md\n---\nx\n")); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if !reader.HasBody() || body.String() != "x\n" {
+		t.Errorf("HasBody = %v, body = %q; want true, %q", reader.HasBody(), body.String(), "x\n")
 	}
 }
 

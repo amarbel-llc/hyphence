@@ -239,12 +239,9 @@ func HeadFromDocument(doc *Document) (Head, error) {
 // with the strict blank-separator rule. Input with no opening boundary is
 // all body and an empty head, as RFC 0001 reads it.
 //
-// hasBody reports whether body bytes followed the closing boundary's
-// blank separator. LIMITATION: Reader hands its Blob consumer the same
-// empty stream for "---\n…\n---\n" (no body) and "---\n…\n---\n\n" (an
-// empty body), so this cannot tell them apart and reports an empty body
-// as no body — unlike the Rust Head::decode, which returns Some(empty).
-// Re-encoding such a document drops the separator line.
+// hasBody reports whether the document had a body section: true for
+// "---\n…\n---\n\n" with an empty body, false for "---\n…\n---\n", the
+// same split as Rust's Head::decode returning Some(empty) or None.
 func DecodeHead(r io.Reader) (head Head, body []byte, hasBody bool, err error) {
 	var doc Document
 	var bodyBuffer bytes.Buffer
@@ -262,7 +259,7 @@ func DecodeHead(r io.Reader) (head Head, body []byte, hasBody bool, err error) {
 		return Head{}, nil, false, err
 	}
 
-	if bodyBuffer.Len() == 0 {
+	if !reader.HasBody() {
 		return head, nil, false, nil
 	}
 

@@ -97,6 +97,9 @@ fn rfc_test_vectors() {
             "document/parse-error-malformed-line" => {
                 assert_eq!(result, Err(Error::MalformedLine), "{name}");
             }
+            "document/parse-error-unterminated-metadata" => {
+                assert_eq!(result, Err(Error::UnterminatedMetadata), "{name}");
+            }
             // Per this outcome's own definition in the vector file, decoding
             // MUST SUCCEED and the cross-line state must then show the
             // violation. Before hyphence#11 this arm asserted decode returned

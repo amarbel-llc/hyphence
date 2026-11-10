@@ -13,6 +13,18 @@ type Reader struct {
 	RequireMetadata       bool // TODO-P4 add delimiter
 	AllowMissingSeparator bool
 	Metadata, Blob        io.ReaderFrom
+
+	hasBody bool
+}
+
+// HasBody reports, after ReadFrom, whether the input had a body section:
+// a blank separator after the closing boundary (even with nothing after
+// it), body bytes after a missing separator when AllowMissingSeparator is
+// set, or any input at all when there is no metadata section. The Blob
+// consumer sees the same empty stream for an empty body and for no body,
+// so this is the only way to tell them apart.
+func (reader *Reader) HasBody() bool {
+	return reader.hasBody
 }
 
 func (reader *Reader) ReadFrom(ioReader io.Reader) (n int64, err error) {
@@ -39,6 +51,7 @@ func (reader *Reader) ReadFrom(ioReader io.Reader) (n int64, err error) {
 func (reader *Reader) readMetadataFrom(ioReader *io.Reader) (n int64, err error) {
 	var state readerState
 	br := bufio.NewReader(*ioReader)
+	reader.hasBody = false
 
 	if reader.RequireMetadata && reader.Metadata == nil {
 		err = errors.ErrorWithStackf("metadata reader is nil")
@@ -81,6 +94,7 @@ LINE_READ_LOOP:
 				return n, err
 
 			case line != Boundary:
+				reader.hasBody = rawLine != ""
 				*ioReader = io.MultiReader(
 					strings.NewReader(rawLine),
 					br,
@@ -116,6 +130,7 @@ LINE_READ_LOOP:
 					return n, err
 				}
 
+				reader.hasBody = true
 				*ioReader = io.MultiReader(
 					strings.NewReader(rawLine),
 					br,
@@ -124,6 +139,8 @@ LINE_READ_LOOP:
 				break LINE_READ_LOOP
 			}
 
+			// rawLine is "\n" for the blank separator and "" at EOF.
+			reader.hasBody = rawLine != ""
 			*ioReader = br
 			break LINE_READ_LOOP
 
@@ -131,6 +148,14 @@ LINE_READ_LOOP:
 			err = errors.ErrorWithStackf("impossible state %d", state)
 			return n, err
 		}
+	}
+
+	if state == readerStateFirstBoundary {
+		// Close the pipe so the Metadata consumer's goroutine finishes; its
+		// verdict on a truncated section is moot.
+		_, _ = object_metadata.Close()
+		err = errors.Wrap(ErrUnterminatedMetadata)
+		return n, err
 	}
 
 	return n, err

@@ -21,6 +21,10 @@
 #   document/parse-error-malformed-line        - MetadataValidator (via Reader) must
 #                                                error with errors.Is(err,
 #                                                ErrMalformedMetadataLine).
+#   document/parse-error-unterminated-metadata - Reader must error with errors.Is(err,
+#                                                ErrUnterminatedMetadata): input ends
+#                                                inside the metadata section (Rust:
+#                                                Error::UnterminatedMetadata).
 #   document/parse-error-inline-body-with-at   - Reader must succeed; the post-
 #                                                ReadFrom validator state must show
 #                                                an @-line was seen AND a body section
@@ -234,3 +238,42 @@ head-canonical-unspaced-to-spaced	LS0tCiEgdGFzawotIGR1ZT0iMjAyNi0wOC0wMSIKPCBibG
 head-canonical-comments-kept	LS0tCiEgbWQldHlwZSBub3RlCiUgbGVhZAotIGs9diVnbHVlZAojIGQKJSB0YWlsCi0tLQo=	head/canonical	LS0tCiMgZAolIGxlYWQKLSBrID0gdiAlZ2x1ZWQKISBtZCAldHlwZSBub3RlCiUgdGFpbAotLS0K
 head-canonical-escapes	LS0tCiEgdGFzawotIG5vdGU9ImFcImJcXGNcdGQiCi0gbmw9ImFcbmIiCi0gb2RkPSJ4XHF5IHoiCi0tLQo=	head/canonical	LS0tCi0gbm90ZSA9ICJhXCJiXFxjXHRkIgotIG5sID0gImFcbmIiCi0gb2RkID0gInhxeSB6IgohIHRhc2sKLS0tCg==
 head-canonical-body	LS0tCiEgbWQKIyBkCi0tLQoKYm9keQo=	head/canonical	LS0tCiMgZAohIG1kCi0tLQoKYm9keQo=
+
+# An empty body is not no body: the blank separator with nothing after it
+# is a body section of zero bytes (Rust Some(empty), Go hasBody), so the
+# canonical encoder keeps the separator. And EOF inside the metadata
+# section is an error (RFC 0001 §Conformance), not a truncated head.
+# Plain-text view:
+#   head-canonical-empty-body       : "---\n! md\n---\n\n" => "---\n! md\n---\n\n"
+#   unterminated-metadata           : "---\n! md\n- k=v\n"
+head-canonical-empty-body	LS0tCiEgbWQKLS0tCgo=	head/canonical	LS0tCiEgbWQKLS0tCgo=
+unterminated-metadata	LS0tCiEgbWQKLSBrPXYK	document/parse-error-unterminated-metadata	-
+
+# Consumer-shape exemplars: the record kinds circus EPIC 0001 D1 proposes
+# to carry as hyphence (hyphence#17; circus
+# docs/plans/2026-10-22-d1-capability-artifact-and-grant-chain.md, sections
+# 2, 2a, 6). Values are illustrative placeholders, not real grants, keys
+# or digests; what these pin is that the line shapes parse under the
+# content grammar and have one canonical spelling. They say nothing about
+# whether a chain verifies — that is circus/spinclass's suite. Names give
+# the D1 vector each shape comes from. Note the run-root vector: a right
+# that is a locked grammar reference has a markl purpose with `:`, which
+# is outside PurposeBare, so its canonical spelling quotes the purpose.
+# Plain-text view (input => expected; "=" when canonical already):
+#   d1-grant-card-root (V-D1-1)
+#     "---\n! profile-grant-v1\n- grantor=operator\n- grantee=circus/eager-holly\n- session=circus/eager-holly\n- profile=manager-builder@blake2b256-acd\n- right=spinclass:merge\n- right=spinclass:spawn\n- right=moxy:kind:write\n- onward=grant\n- expires=2026-10-27T00:00:00Z\n- nonce=0f1e2d3c4b5a69788796a5b4c3d2e1f0\n- budget=spend-usd:1.00\n- piggy-escalation-v1@ed25519_sig-qqxyz\n---\n"
+#     => "---\n- grantor = operator\n- grantee = circus/eager-holly\n- session = circus/eager-holly\n- profile = manager-builder@blake2b256-acd\n- right = spinclass:merge\n- right = spinclass:spawn\n- right = moxy:kind:write\n- onward = grant\n- expires = 2026-10-27T00:00:00Z\n- nonce = 0f1e2d3c4b5a69788796a5b4c3d2e1f0\n- budget = spend-usd:1.00\n- piggy-escalation-v1@ed25519_sig-qqxyz\n! profile-grant-v1\n---\n"
+#   d1-grant-narrowing-link (V-D1-2), =
+#     "---\n- grantor = circus/eager-holly\n- grantee = circus/swift-oak\n- session = circus/swift-oak\n- profile = engineer-reviewer@blake2b256-def\n- right = spinclass:merge\n- onward = none\n- expires = 2026-10-26T12:00:00Z\n- nonce = 00112233445566778899aabbccddeeff\n- _prev = @blake2b256-ghj\n! profile-grant-v1\n---\n"
+#   d1-grant-run-root (V-D1-3)
+#     "---\n- grantor=circus/eager-holly\n- grantee=r-7f3a\n- session=-\n- profile=attest-run@blake2b256-jkl\n- right=roustabout:grammar:attest-seq@blake2b256-xyz\n- onward=grant\n- expires=\"2026-10-26T18:00:00Z\"\n- nonce=ffeeddccbbaa99887766554433221100\n- _prev=@blake2b256-acd\n! profile-grant-v1\n---\n"
+#     => "---\n- grantor = circus/eager-holly\n- grantee = r-7f3a\n- session = -\n- profile = attest-run@blake2b256-jkl\n- right = \"roustabout:grammar:attest-seq\"@blake2b256-xyz\n- onward = grant\n- expires = 2026-10-26T18:00:00Z\n- nonce = ffeeddccbbaa99887766554433221100\n- _prev = @blake2b256-acd\n! profile-grant-v1\n---\n"
+#   d1-grant-widening-root (V-D1-9), =
+#     "---\n- grantor = operator\n- grantee = circus/eager-holly\n- session = circus/eager-holly\n- profile = manager-builder@blake2b256-acd\n- right = spinclass:merge\n- right = spinclass:spawn\n- right = moxy:kind:write\n- right = cutting-garden:mutate\n- onward = grant\n- expires = 2026-10-28T00:00:00Z\n- nonce = 0123456789abcdef0123456789abcdef\n- widens = @blake2b256-def\n- piggy-escalation-v1@ed25519_sig-qqxyz\n! profile-grant-v1\n---\n"
+#   d1-profile-transition (V-D1-15), =
+#     "---\n- profile = engineer-reviewer\n- from = @blake2b256-acd\n- to = @blake2b256-def\n- nonce = fedcba9876543210fedcba9876543210\n- expires = 2026-10-24T09:00:00Z\n- piggy-escalation-v1@ed25519_sig-qqxyz\n! profile-transition-v1\n---\n"
+d1-grant-card-root	LS0tCiEgcHJvZmlsZS1ncmFudC12MQotIGdyYW50b3I9b3BlcmF0b3IKLSBncmFudGVlPWNpcmN1cy9lYWdlci1ob2xseQotIHNlc3Npb249Y2lyY3VzL2VhZ2VyLWhvbGx5Ci0gcHJvZmlsZT1tYW5hZ2VyLWJ1aWxkZXJAYmxha2UyYjI1Ni1hY2QKLSByaWdodD1zcGluY2xhc3M6bWVyZ2UKLSByaWdodD1zcGluY2xhc3M6c3Bhd24KLSByaWdodD1tb3h5OmtpbmQ6d3JpdGUKLSBvbndhcmQ9Z3JhbnQKLSBleHBpcmVzPTIwMjYtMTAtMjdUMDA6MDA6MDBaCi0gbm9uY2U9MGYxZTJkM2M0YjVhNjk3ODg3OTZhNWI0YzNkMmUxZjAKLSBidWRnZXQ9c3BlbmQtdXNkOjEuMDAKLSBwaWdneS1lc2NhbGF0aW9uLXYxQGVkMjU1MTlfc2lnLXFxeHl6Ci0tLQo=	head/canonical	LS0tCi0gZ3JhbnRvciA9IG9wZXJhdG9yCi0gZ3JhbnRlZSA9IGNpcmN1cy9lYWdlci1ob2xseQotIHNlc3Npb24gPSBjaXJjdXMvZWFnZXItaG9sbHkKLSBwcm9maWxlID0gbWFuYWdlci1idWlsZGVyQGJsYWtlMmIyNTYtYWNkCi0gcmlnaHQgPSBzcGluY2xhc3M6bWVyZ2UKLSByaWdodCA9IHNwaW5jbGFzczpzcGF3bgotIHJpZ2h0ID0gbW94eTpraW5kOndyaXRlCi0gb253YXJkID0gZ3JhbnQKLSBleHBpcmVzID0gMjAyNi0xMC0yN1QwMDowMDowMFoKLSBub25jZSA9IDBmMWUyZDNjNGI1YTY5Nzg4Nzk2YTViNGMzZDJlMWYwCi0gYnVkZ2V0ID0gc3BlbmQtdXNkOjEuMDAKLSBwaWdneS1lc2NhbGF0aW9uLXYxQGVkMjU1MTlfc2lnLXFxeHl6CiEgcHJvZmlsZS1ncmFudC12MQotLS0K
+d1-grant-narrowing-link	LS0tCi0gZ3JhbnRvciA9IGNpcmN1cy9lYWdlci1ob2xseQotIGdyYW50ZWUgPSBjaXJjdXMvc3dpZnQtb2FrCi0gc2Vzc2lvbiA9IGNpcmN1cy9zd2lmdC1vYWsKLSBwcm9maWxlID0gZW5naW5lZXItcmV2aWV3ZXJAYmxha2UyYjI1Ni1kZWYKLSByaWdodCA9IHNwaW5jbGFzczptZXJnZQotIG9ud2FyZCA9IG5vbmUKLSBleHBpcmVzID0gMjAyNi0xMC0yNlQxMjowMDowMFoKLSBub25jZSA9IDAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmCi0gX3ByZXYgPSBAYmxha2UyYjI1Ni1naGoKISBwcm9maWxlLWdyYW50LXYxCi0tLQo=	head/canonical	LS0tCi0gZ3JhbnRvciA9IGNpcmN1cy9lYWdlci1ob2xseQotIGdyYW50ZWUgPSBjaXJjdXMvc3dpZnQtb2FrCi0gc2Vzc2lvbiA9IGNpcmN1cy9zd2lmdC1vYWsKLSBwcm9maWxlID0gZW5naW5lZXItcmV2aWV3ZXJAYmxha2UyYjI1Ni1kZWYKLSByaWdodCA9IHNwaW5jbGFzczptZXJnZQotIG9ud2FyZCA9IG5vbmUKLSBleHBpcmVzID0gMjAyNi0xMC0yNlQxMjowMDowMFoKLSBub25jZSA9IDAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmCi0gX3ByZXYgPSBAYmxha2UyYjI1Ni1naGoKISBwcm9maWxlLWdyYW50LXYxCi0tLQo=
+d1-grant-run-root	LS0tCi0gZ3JhbnRvcj1jaXJjdXMvZWFnZXItaG9sbHkKLSBncmFudGVlPXItN2YzYQotIHNlc3Npb249LQotIHByb2ZpbGU9YXR0ZXN0LXJ1bkBibGFrZTJiMjU2LWprbAotIHJpZ2h0PXJvdXN0YWJvdXQ6Z3JhbW1hcjphdHRlc3Qtc2VxQGJsYWtlMmIyNTYteHl6Ci0gb253YXJkPWdyYW50Ci0gZXhwaXJlcz0iMjAyNi0xMC0yNlQxODowMDowMFoiCi0gbm9uY2U9ZmZlZWRkY2NiYmFhOTk4ODc3NjY1NTQ0MzMyMjExMDAKLSBfcHJldj1AYmxha2UyYjI1Ni1hY2QKISBwcm9maWxlLWdyYW50LXYxCi0tLQo=	head/canonical	LS0tCi0gZ3JhbnRvciA9IGNpcmN1cy9lYWdlci1ob2xseQotIGdyYW50ZWUgPSByLTdmM2EKLSBzZXNzaW9uID0gLQotIHByb2ZpbGUgPSBhdHRlc3QtcnVuQGJsYWtlMmIyNTYtamtsCi0gcmlnaHQgPSAicm91c3RhYm91dDpncmFtbWFyOmF0dGVzdC1zZXEiQGJsYWtlMmIyNTYteHl6Ci0gb253YXJkID0gZ3JhbnQKLSBleHBpcmVzID0gMjAyNi0xMC0yNlQxODowMDowMFoKLSBub25jZSA9IGZmZWVkZGNjYmJhYTk5ODg3NzY2NTU0NDMzMjIxMTAwCi0gX3ByZXYgPSBAYmxha2UyYjI1Ni1hY2QKISBwcm9maWxlLWdyYW50LXYxCi0tLQo=
+d1-grant-widening-root	LS0tCi0gZ3JhbnRvciA9IG9wZXJhdG9yCi0gZ3JhbnRlZSA9IGNpcmN1cy9lYWdlci1ob2xseQotIHNlc3Npb24gPSBjaXJjdXMvZWFnZXItaG9sbHkKLSBwcm9maWxlID0gbWFuYWdlci1idWlsZGVyQGJsYWtlMmIyNTYtYWNkCi0gcmlnaHQgPSBzcGluY2xhc3M6bWVyZ2UKLSByaWdodCA9IHNwaW5jbGFzczpzcGF3bgotIHJpZ2h0ID0gbW94eTpraW5kOndyaXRlCi0gcmlnaHQgPSBjdXR0aW5nLWdhcmRlbjptdXRhdGUKLSBvbndhcmQgPSBncmFudAotIGV4cGlyZXMgPSAyMDI2LTEwLTI4VDAwOjAwOjAwWgotIG5vbmNlID0gMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYKLSB3aWRlbnMgPSBAYmxha2UyYjI1Ni1kZWYKLSBwaWdneS1lc2NhbGF0aW9uLXYxQGVkMjU1MTlfc2lnLXFxeHl6CiEgcHJvZmlsZS1ncmFudC12MQotLS0K	head/canonical	LS0tCi0gZ3JhbnRvciA9IG9wZXJhdG9yCi0gZ3JhbnRlZSA9IGNpcmN1cy9lYWdlci1ob2xseQotIHNlc3Npb24gPSBjaXJjdXMvZWFnZXItaG9sbHkKLSBwcm9maWxlID0gbWFuYWdlci1idWlsZGVyQGJsYWtlMmIyNTYtYWNkCi0gcmlnaHQgPSBzcGluY2xhc3M6bWVyZ2UKLSByaWdodCA9IHNwaW5jbGFzczpzcGF3bgotIHJpZ2h0ID0gbW94eTpraW5kOndyaXRlCi0gcmlnaHQgPSBjdXR0aW5nLWdhcmRlbjptdXRhdGUKLSBvbndhcmQgPSBncmFudAotIGV4cGlyZXMgPSAyMDI2LTEwLTI4VDAwOjAwOjAwWgotIG5vbmNlID0gMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYKLSB3aWRlbnMgPSBAYmxha2UyYjI1Ni1kZWYKLSBwaWdneS1lc2NhbGF0aW9uLXYxQGVkMjU1MTlfc2lnLXFxeHl6CiEgcHJvZmlsZS1ncmFudC12MQotLS0K
+d1-profile-transition	LS0tCi0gcHJvZmlsZSA9IGVuZ2luZWVyLXJldmlld2VyCi0gZnJvbSA9IEBibGFrZTJiMjU2LWFjZAotIHRvID0gQGJsYWtlMmIyNTYtZGVmCi0gbm9uY2UgPSBmZWRjYmE5ODc2NTQzMjEwZmVkY2JhOTg3NjU0MzIxMAotIGV4cGlyZXMgPSAyMDI2LTEwLTI0VDA5OjAwOjAwWgotIHBpZ2d5LWVzY2FsYXRpb24tdjFAZWQyNTUxOV9zaWctcXF4eXoKISBwcm9maWxlLXRyYW5zaXRpb24tdjEKLS0tCg==	head/canonical	LS0tCi0gcHJvZmlsZSA9IGVuZ2luZWVyLXJldmlld2VyCi0gZnJvbSA9IEBibGFrZTJiMjU2LWFjZAotIHRvID0gQGJsYWtlMmIyNTYtZGVmCi0gbm9uY2UgPSBmZWRjYmE5ODc2NTQzMjEwZmVkY2JhOTg3NjU0MzIxMAotIGV4cGlyZXMgPSAyMDI2LTEwLTI0VDA5OjAwOjAwWgotIHBpZ2d5LWVzY2FsYXRpb24tdjFAZWQyNTUxOV9zaWctcXF4eXoKISBwcm9maWxlLXRyYW5zaXRpb24tdjEKLS0tCg==

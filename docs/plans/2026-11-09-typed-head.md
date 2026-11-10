@@ -67,14 +67,24 @@ grammar amendment was needed.
 
 ## Follow-ups
 
-- **Go cannot tell an empty body from no body.** Go's `Reader` hands its blob
-  consumer the same empty stream for `---\n…---\n` and `---\n…---\n\n`, so
-  `DecodeHead` reports `hasBody` only when at least one body byte follows.
-  Rust's `Head::decode` returns `Some(empty)` for the second. Re-encoding such
-  a document in Go drops the separator. No vector has an empty body; fixing it
-  means changing `Reader`.
-- Go's `Reader` may not report EOF inside the metadata section as an error
-  (Rust returns `UnterminatedMetadata`); unverified, predates this slice.
+- **Done 2026-11-10: empty body vs no body in Go.** `Reader` now records
+  whether a body section was present (`Reader.HasBody()`), and `DecodeHead`
+  uses it, so `---\n…---\n\n` reads as an empty body (Rust `Some(empty)`) and
+  keeps its separator on re-encode. Pinned by `head-canonical-empty-body`.
+- **Done 2026-11-10: EOF inside the metadata section.** Confirmed by reading
+  that Go's `Reader` returned success with a truncated head (and left the
+  metadata pipe open). It now returns `ErrUnterminatedMetadata`, Rust's
+  `UnterminatedMetadata`, as RFC 0001 §Conformance requires. Pinned by
+  `unterminated-metadata` (`document/parse-error-unterminated-metadata`).
+- Still open, same RFC rule: `Coder` (`coder.go`), `Decoder` (`decoder.go`)
+  and `coder_to_typed_blob.go` each run their own copy of the state machine
+  and still accept EOF inside the metadata section. `coder.go` also discards
+  the line after the closing boundary without checking that it is blank.
+- Still open: Go accepts a closing `---` with no LF at end of input; Rust
+  reports `UnterminatedMetadata` (RFC 0001 defines the boundary as `---\n`).
+- Still open: `hyphence format`'s `FormatBodyEmitter` decides body presence by
+  peeking for a byte, so it drops the separator of an empty body. It could
+  take `Reader.HasBody()` instead.
 
 - piggy-pigpen's minimal framing (`crates/piggy-pigpen/src/hyphence.rs`) can
   move onto this crate (piggy RFC 0008 Compatibility); piggy's call.
