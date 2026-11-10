@@ -105,6 +105,10 @@ Appended to the shared corpus under a new outcome, `head/canonical`: the input d
 | `head-canonical-escapes` | `\"`, `\\`, `\t` round-trip; `\n` stays two characters; an unknown escape collapses |
 | `head-canonical-body` | the body follows the separator unchanged |
 
+### Emission vectors
+
+`docs/rfcs/0005-vectors.txt` is this RFC's own conformance file, in the record shape of piggy `docs/rfcs/0013-vectors.txt` so a consumer can replay it next to its own vectors. A `canonical` record gives a document and its canonical form; a `refuse` record gives a document the typed head MUST refuse, and why (`envelope` or `content`). It covers rule 4's full escape set, rule 5's `PurposeBare` cut (piggy RFC 0011 §2.1), text and field-name bareness, `<` written `-`, stable rank order, comments, and the difference between no body and an empty body. Rust `emission_vectors` and Go `TestEmissionVectors` replay byte-identical copies under each implementation's `testdata/`, and the `vectors-equality` flake check keeps all three equal. It holds no digests: hyphence defines no digest algorithm, so the canonical bytes are the whole contract, and a consumer digests them under its own rules.
+
 ## See Also
 
 - `docs/rfcs/0001-hyphence.md`, `docs/rfcs/0002-content-grammar.md`, `docs/rfcs/0003-markl-atomic-locks.md`, `docs/rfcs/hyphence-content.peg`.

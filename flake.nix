@@ -328,7 +328,8 @@
         # copy of the normative RFC 0001 vectors (per-crate copies keep each
         # crate self-contained for a possible crates.io publish). This gate keeps
         # them byte-identical so both impls are provably tested against the same
-        # vectors.
+        # vectors. The RFC 0005 emission vectors have a third copy, the
+        # normative one under docs/rfcs/, which piggy pins and replays.
         vectors-equality = pkgs.runCommand "hyphence-vectors-equality" { } ''
           if ! diff -u \
             ${./go/hyphence/testdata/rfc_vectors.txt} \
@@ -336,6 +337,14 @@
             echo "rfc_vectors.txt drift between the go/ and rust/ impls — keep them byte-identical" >&2
             exit 1
           fi
+          for copy in \
+            ${./go/hyphence/testdata/0005-vectors.txt} \
+            ${./rust/hyphence/testdata/0005-vectors.txt}; do
+            if ! diff -u ${./docs/rfcs/0005-vectors.txt} "$copy"; then
+              echo "0005-vectors.txt drift: the go/ and rust/ testdata copies must equal docs/rfcs/0005-vectors.txt" >&2
+              exit 1
+            fi
+          done
           touch "$out"
         '';
       in

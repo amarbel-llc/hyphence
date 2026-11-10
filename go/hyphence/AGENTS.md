@@ -78,7 +78,10 @@ section read into typed lines, plus the canonical encoder
 - `Head.Encode(w, body, hasBody)` / `Head.Document()` spell every line
   canonically; `Quote` is the Doddish quoter.
 - The `head/canonical` vectors (`head_vectors_test.go`) pin byte equality
-  with Rust. `DecodeHead`'s `hasBody` comes from `Reader.HasBody()`, the
+  with Rust, and so does `testdata/0005-vectors.txt`
+  (`emission_vectors_test.go`), a copy of `docs/rfcs/0005-vectors.txt`, the
+  file piggy replays. Edit the `docs/rfcs/` file and copy it to both
+  `testdata/` dirs; the `vectors-equality` flake check refuses drift. `DecodeHead`'s `hasBody` comes from `Reader.HasBody()`, the
   only place an empty body and no body differ (the Blob consumer sees the
   same empty stream). `Reader` returns `ErrUnterminatedMetadata` on EOF
   inside the metadata section; `Coder`, `Decoder` and

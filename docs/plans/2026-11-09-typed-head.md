@@ -76,6 +76,11 @@ grammar amendment was needed.
   metadata pipe open). It now returns `ErrUnterminatedMetadata`, Rust's
   `UnterminatedMetadata`, as RFC 0001 §Conformance requires. Pinned by
   `unterminated-metadata` (`document/parse-error-unterminated-metadata`).
+- **Done 2026-11-10: a vectors file piggy can replay.**
+  `docs/rfcs/0005-vectors.txt` (piggy's 0013-vectors.txt record shape), with
+  Rust `emission_vectors` and Go `TestEmissionVectors` replaying copies under
+  each `testdata/`. No digest key, agreed with piggy: the canonical bytes are
+  the contract.
 - Still open, same RFC rule: `Coder` (`coder.go`), `Decoder` (`decoder.go`)
   and `coder_to_typed_blob.go` each run their own copy of the state machine
   and still accept EOF inside the metadata section. `coder.go` also discards

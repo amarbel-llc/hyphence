@@ -4,7 +4,7 @@
 //! from madder's Go reference implementation). Every conforming implementation MUST
 //! agree with these outcomes; this harness runs all of them against `decode`.
 
-use crate::{Document, Error, Head, parse_content};
+use crate::{Document, Error, Head, HeadError, parse_content};
 
 /// Vectors that deliberately exercise the RETIRED, pre-RFC-0003 spaced-lock
 /// spelling (`Lock = SP DigestTerm`) to prove it still decodes at the envelope
@@ -291,4 +291,144 @@ fn head_canonical_vectors() {
     }
 
     assert!(checked > 0, "no head/canonical vectors were checked");
+}
+
+/// One record of `testdata/0005-vectors.txt` (format in that file's header).
+struct EmissionVector {
+    name: String,
+    outcome: String,
+    rule: Option<String>,
+    document: Vec<u8>,
+    canonical: Option<Vec<u8>>,
+}
+
+fn hex_decode(s: &str) -> Vec<u8> {
+    assert!(s.len() % 2 == 0, "body-hex has an odd length: {s}");
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).expect("body-hex is lowercase hex"))
+        .collect()
+}
+
+fn parse_emission_vectors(text: &str) -> Vec<EmissionVector> {
+    #[derive(Clone, Copy)]
+    enum Block {
+        None,
+        Document,
+        Canonical,
+    }
+
+    let mut vectors = Vec::new();
+    let mut current: Option<EmissionVector> = None;
+    let mut block = Block::None;
+    let mut body = Vec::new();
+
+    let mut finish = |current: &mut Option<EmissionVector>, body: &mut Vec<u8>| {
+        if let Some(mut v) = current.take() {
+            v.document.extend_from_slice(body);
+            if let Some(canonical) = v.canonical.as_mut() {
+                canonical.extend_from_slice(body);
+            }
+            body.clear();
+            vectors.push(v);
+        }
+    };
+
+    for line in text.lines() {
+        if line.is_empty() {
+            finish(&mut current, &mut body);
+            block = Block::None;
+            continue;
+        }
+
+        let Some(v) = current.as_mut() else {
+            if line.starts_with('#') {
+                continue;
+            }
+            let name = line
+                .strip_prefix("name: ")
+                .unwrap_or_else(|| panic!("record does not start with name: {line}"));
+            current = Some(EmissionVector {
+                name: name.to_owned(),
+                outcome: String::new(),
+                rule: None,
+                document: Vec::new(),
+                canonical: None,
+            });
+            continue;
+        };
+
+        if let Some(text) = line.strip_prefix("| ").or((line == "|").then_some("")) {
+            let target = match block {
+                Block::Document => &mut v.document,
+                Block::Canonical => v.canonical.get_or_insert_with(Vec::new),
+                Block::None => panic!("{}: a | line outside a document block", v.name),
+            };
+            target.extend_from_slice(text.as_bytes());
+            target.push(b'\n');
+            continue;
+        }
+
+        block = Block::None;
+        let (key, value) = line
+            .split_once(':')
+            .unwrap_or_else(|| panic!("{}: not a key: value line: {line}", v.name));
+        let value = value.trim_start();
+        match key {
+            "outcome" => v.outcome = value.to_owned(),
+            "rule" => v.rule = Some(value.to_owned()),
+            "body-hex" => body = hex_decode(value),
+            "document" => block = Block::Document,
+            "canonical" => {
+                v.canonical = Some(Vec::new());
+                block = Block::Canonical;
+            }
+            _ => panic!("{}: unknown key {key}", v.name),
+        }
+    }
+    finish(&mut current, &mut body);
+
+    vectors
+}
+
+/// Replays `testdata/0005-vectors.txt`, the RFC 0005 vectors piggy also
+/// replays. A canonical record's document and canonical form both encode to
+/// the canonical form; a refuse record fails to decode for the named rule.
+/// Go's `TestEmissionVectors` runs the identical check.
+#[test]
+fn emission_vectors() {
+    let vectors = parse_emission_vectors(include_str!("../testdata/0005-vectors.txt"));
+    assert!(!vectors.is_empty(), "no RFC 0005 vectors were parsed");
+
+    for v in &vectors {
+        let name = &v.name;
+        match (v.outcome.as_str(), &v.canonical, v.rule.as_deref()) {
+            ("canonical", Some(canonical), None) => {
+                for (label, input) in [("document", &v.document), ("canonical", canonical)] {
+                    let (head, body) = Head::decode(input)
+                        .unwrap_or_else(|e| panic!("{name}: {label} did not decode: {e}"));
+                    let got = head
+                        .encode(body.as_deref())
+                        .unwrap_or_else(|e| panic!("{name}: {label} did not encode: {e}"));
+                    assert_eq!(
+                        String::from_utf8_lossy(&got),
+                        String::from_utf8_lossy(canonical),
+                        "{name}: canonical encoding of the {label} differs"
+                    );
+                }
+            }
+            ("refuse", None, Some(rule)) => {
+                let err = match Head::decode(&v.document) {
+                    Ok(_) => panic!("{name}: decoded, want a refusal under rule {rule}"),
+                    Err(e) => e,
+                };
+                let got = match err {
+                    HeadError::Envelope(_) => "envelope",
+                    HeadError::Content { .. } => "content",
+                };
+                assert_eq!(got, rule, "{name}: refused under the wrong rule: {err}");
+            }
+            _ => panic!("{name}: malformed record (outcome, canonical and rule disagree)"),
+        }
+    }
 }
