@@ -122,6 +122,11 @@ LINE_READ_LOOP:
 		}
 	}
 
+	if state == readerStateFirstBoundary {
+		err = abortUnterminatedMetadata(metadataPipe)
+		return n, err
+	}
+
 	return n, err
 }
 

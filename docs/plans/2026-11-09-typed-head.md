@@ -81,10 +81,13 @@ grammar amendment was needed.
   Rust `emission_vectors` and Go `TestEmissionVectors` replaying copies under
   each `testdata/`. No digest key, agreed with piggy: the canonical bytes are
   the contract.
-- Still open, same RFC rule: `Coder` (`coder.go`), `Decoder` (`decoder.go`)
-  and `coder_to_typed_blob.go` each run their own copy of the state machine
-  and still accept EOF inside the metadata section. `coder.go` also discards
-  the line after the closing boundary without checking that it is blank.
+- **Done 2026-11-12: EOF inside the metadata section, the other decoders.**
+  `Decoder`, `Coder` and `CoderToTypedBlob` now return
+  `ErrUnterminatedMetadata` like `Reader`, through one shared
+  `abortUnterminatedMetadata`. Pinned by
+  `TestDecodersRefuseUnterminatedMetadata`.
+- Still open: `coder.go` and `coder_to_typed_blob.go` discard the line after
+  the closing boundary without checking that it is blank.
 - Still open: Go accepts a closing `---` with no LF at end of input; Rust
   reports `UnterminatedMetadata` (RFC 0001 defines the boundary as `---\n`).
 - Still open: `hyphence format`'s `FormatBodyEmitter` decides body presence by

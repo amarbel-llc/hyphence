@@ -1,6 +1,9 @@
 package hyphence
 
-import "code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+import (
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/ohio"
+)
 
 type (
 	pkgErrDisamb struct{}
@@ -22,3 +25,12 @@ var errMissingNewlineAfterBoundary = newPkgError(
 var ErrUnterminatedMetadata = newPkgError(
 	"unterminated metadata section (no closing boundary ---)",
 )
+
+// abortUnterminatedMetadata closes the metadata pipe so its consumer's
+// goroutine finishes (its verdict on a truncated section is moot) and returns
+// ErrUnterminatedMetadata. Every state machine that reads a metadata section
+// (Reader, Decoder, Coder, CoderToTypedBlob) ends this way at EOF.
+func abortUnterminatedMetadata(metadataPipe ohio.PipedReader) error {
+	_, _ = metadataPipe.Close()
+	return errors.Wrap(ErrUnterminatedMetadata)
+}

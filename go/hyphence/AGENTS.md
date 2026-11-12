@@ -83,9 +83,10 @@ section read into typed lines, plus the canonical encoder
   file piggy replays. Edit the `docs/rfcs/` file and copy it to both
   `testdata/` dirs; the `vectors-equality` flake check refuses drift. `DecodeHead`'s `hasBody` comes from `Reader.HasBody()`, the
   only place an empty body and no body differ (the Blob consumer sees the
-  same empty stream). `Reader` returns `ErrUnterminatedMetadata` on EOF
-  inside the metadata section; `Coder`, `Decoder` and
-  `coder_to_typed_blob.go` keep their own state machines and do not yet.
+  same empty stream). `Reader`, `Decoder`, `Coder` and `CoderToTypedBlob`
+  each run their own copy of the state machine; all four end EOF inside
+  the metadata section with `abortUnterminatedMetadata`
+  (`ErrUnterminatedMetadata`).
 
 ## See also
 

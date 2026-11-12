@@ -151,10 +151,7 @@ LINE_READ_LOOP:
 	}
 
 	if state == readerStateFirstBoundary {
-		// Close the pipe so the Metadata consumer's goroutine finishes; its
-		// verdict on a truncated section is moot.
-		_, _ = object_metadata.Close()
-		err = errors.Wrap(ErrUnterminatedMetadata)
+		err = abortUnterminatedMetadata(object_metadata)
 		return n, err
 	}
 
