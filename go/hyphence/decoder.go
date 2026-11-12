@@ -126,11 +126,8 @@ LINE_READ_LOOP:
 					return n, err
 				}
 
-				if err = decoder.peekSeparatorLine(bufferedReader); err != nil {
-					return n, err
-				}
-
-				break LINE_READ_LOOP
+				err = decoder.peekSeparatorLine(bufferedReader)
+				return n, err
 			}
 
 			if _, err = metadataPipe.Write([]byte(rawLine)); err != nil {
